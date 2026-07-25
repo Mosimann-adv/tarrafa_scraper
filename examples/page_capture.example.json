@@ -1,0 +1,43 @@
+{
+  "tool": "page",
+  "version": "0.4.0",
+  "collected_at": "2026-07-25T12:00:00.000Z",
+  "source": {
+    "url": "https://example.com",
+    "final_url": "https://example.com"
+  },
+  "meta": {
+    "mode": "http",
+    "methods": [
+      "http"
+    ],
+    "used": "http",
+    "status": 200,
+    "text_len": 76,
+    "links_count": 1
+  },
+  "count": 1,
+  "items": [
+    {
+      "url": "https://example.com",
+      "title": "Example Domain",
+      "author": null,
+      "date": null,
+      "text": "This domain is for use in documentation examples without needing permission.",
+      "text_len": 76,
+      "links": [
+        "https://iana.org/domains/example"
+      ],
+      "links_count": 1,
+      "extract_method": "trafilatura.bare",
+      "host": "example.com",
+      "final_url": "https://example.com",
+      "status": 200,
+      "fetch_method": "http"
+    }
+  ],
+  "errors": [],
+  "notes": [
+    "Material-only capture (title/text/links). No classification."
+  ]
+}

@@ -3,6 +3,9 @@
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](SECURITY.md)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+[![CI](https://github.com/Mosimann-adv/tarrafa_scraper/actions/workflows/ci.yml/badge.svg)](https://github.com/Mosimann-adv/tarrafa_scraper/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Mosimann-adv/tarrafa_scraper/actions/workflows/codeql.yml/badge.svg)](https://github.com/Mosimann-adv/tarrafa_scraper/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/Mosimann-adv/tarrafa_scraper?include_prereleases)](https://github.com/Mosimann-adv/tarrafa_scraper/releases)
 
 ![Joga a rede. Puxa a prova.](assets/hero.jpg)
 
@@ -11,7 +14,7 @@
 > APIs e sites mudam; ferramentas quebram; **valide tudo** antes de usar em peça ou prova.  
 > Detalhes de segurança e o que **não** publicar em issues: [SECURITY.md](SECURITY.md).
 
-CLI multi-fonte para **uso jurídico experimental**: inventário de material aberto e prova documental (páginas, feeds, prints, vídeo, Instagram, CNPJ, diário oficial/DJEN, Datajud e PDFs).  
+CLI multi-fonte **source-available** para **uso jurídico experimental**: inventário de material aberto e prova documental (páginas, feeds, prints, vídeo, Instagram, CNPJ, diário oficial/DJEN, Datajud e PDFs).
 Serve para prototipar e apoiar coleta/organização de material em contexto legal — **não** é SaaS, **não** é serviço advocatício e **não** substitui análise humana.  
 Independente de IDE, vault ou assistente de IA.
 
@@ -21,7 +24,24 @@ Independente de IDE, vault ou assistente de IA.
 | Versão | 0.4.0 (experimental) |
 | Python | ≥ 3.10 |
 | Status | Pesquisa / protótipo — **não é produto** |
+| Distribuição | Código-fonte público sob licença não comercial |
 | Licença | [PolyForm Noncommercial 1.0.0](LICENSE) — créditos obrigatórios · **sem uso comercial** |
+
+---
+
+## Em 30 segundos
+
+```bash
+tarrafa page --url https://example.com --out ./out/page.json
+```
+
+```text
+page: · ok · count=1 · -> out/page.json · text_len=76
+```
+
+O resultado é um envelope JSON com fonte, horário de coleta, método, conteúdo,
+erros e notas. Capturas e vídeos também registram SHA-256. Veja um
+[artefato de exemplo](examples/page_capture.example.json).
 
 ---
 
@@ -29,7 +49,7 @@ Independente de IDE, vault ou assistente de IA.
 
 Fluxo típico de um caso:
 
-1. **Instalar** (uma vez) — veja [Install](#install) abaixo.  
+1. **Instalar** (uma vez) — veja [Instalação](#instalação) abaixo.
 2. **Checar o ambiente:** `tarrafa doctor`  
 3. **(Opcional) criar pasta do caso:**
    ```bash
@@ -100,7 +120,11 @@ Config em camadas: flags → env (`TARRAFA_TIMEOUT`, …) → `./tarrafa.toml` �
 
 ---
 
-## Install
+## Instalação
+
+### Uso
+
+Instalação a partir do código:
 
 ```bash
 git clone https://github.com/Mosimann-adv/tarrafa_scraper.git
@@ -113,17 +137,36 @@ python -m venv .venv
 # macOS / Linux
 # source .venv/bin/activate
 
-pip install -e ".[dev]"
-playwright install chromium
+python -m pip install .
+python -m playwright install chromium
+tarrafa doctor
+```
+
+Instalação direta da release:
+
+```bash
+python -m pip install \
+  https://github.com/Mosimann-adv/tarrafa_scraper/releases/download/v0.4.0/tarrafa_scraper-0.4.0-py3-none-any.whl
+python -m playwright install chromium
 tarrafa doctor
 ```
 
 Extras opcionais:
 
 ```bash
-pip install -e ".[av]"     # yt-dlp (download de vídeo)
-pip install -e ".[site]"   # scrapy (opcional; site usa BFS httpx por padrão)
+python -m pip install ".[av]"     # yt-dlp (download de vídeo)
+python -m pip install ".[site]"   # scrapy (opcional; site usa BFS httpx por padrão)
 # ffmpeg no PATH → frames a partir do arquivo baixado
+```
+
+### Desenvolvimento
+
+```bash
+python -m pip install -e ".[dev]"
+python -m playwright install chromium
+ruff check src tests
+pytest -q -m "not integration"
+pytest -q -m integration  # rede e Chromium
 ```
 
 ---
@@ -291,6 +334,10 @@ Ver também **[SECURITY.md](SECURITY.md)** (o que não vazar em issues; tokens; 
 ## Licença
 
 Distribuído sob **[PolyForm Noncommercial License 1.0.0](LICENSE)**.
+
+Como a licença restringe uso comercial, o Tarrafa é **source-available**, não
+open source no sentido OSI. A expressão SPDX do pacote é
+`PolyForm-Noncommercial-1.0.0`.
 
 Em resumo (não substitui o texto integral):
 
