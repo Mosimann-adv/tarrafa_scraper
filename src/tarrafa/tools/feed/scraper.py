@@ -148,7 +148,7 @@ def capture_feed(
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="tarrafa feed",
-        description="Parse RSS/Atom feed → forensic JSON envelope.",
+        description="Parse RSS/Atom feed -> forensic JSON envelope.",
     )
     ap.add_argument("--url", required=True, help="Feed URL")
     ap.add_argument("--out", required=True, help="Output JSON path")

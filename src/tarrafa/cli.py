@@ -15,22 +15,38 @@ from pathlib import Path
 
 TOOLS = [
     ("init", "Create optional workspace (tarrafa.toml + raw/shots/html/logs/meta)"),
-    ("ig", "Instagram post/reel comments → forensic JSON (permalinks /c/)"),
+    ("ig", "Instagram post/reel comments -> forensic JSON (permalinks /c/)"),
     ("page", "Single public page capture (HTTP / browser + structured facts)"),
-    ("site", "Controlled same-host BFS crawl → multi-page envelope"),
+    ("site", "Controlled same-host BFS crawl -> multi-page envelope"),
     ("feed", "RSS/Atom feed inventory (optional entry fetch)"),
-    ("shot", "High-quality page screenshot → PNG + JSON"),
+    ("shot", "High-quality page screenshot -> PNG + JSON"),
     ("video", "Video meta + frames (+ optional yt-dlp download)"),
     ("album", "Compile shots/frames into print-ready HTML album"),
     ("dossier", "Ficha HTML perfil: avatar + achados + fontes + prints seletivos"),
-    ("cnpj", "Consulta CNPJ (API open CNPJá /office) → envelope JSON"),
+    ("cnpj", "Consulta CNPJ (API open CNPJá /office) -> envelope JSON"),
     ("djen", "Comunicações DJEN (ComunicaAPI) — advogado (OAB) ou parte (--papel parte --texto)"),
-    ("datajud", "Capa/movimentos Datajud (API pública CNJ) por CNJ → envelope"),
+    ("datajud", "Capa/movimentos Datajud (API pública CNJ) por CNJ -> envelope"),
     ("pdf-extract", "Texto + identity hints (CPF/CNJ/endereço/…) de PDFs judiciais"),
     ("doctor", "Check Python deps, Chromium, ffmpeg, yt-dlp, storage_state, MCP token"),
     ("list", "List tools"),
     ("version", "Print version"),
 ]
+
+
+def _configure_stdio() -> None:
+    """Keep CLI output usable on legacy Windows code pages.
+
+    Python may expose a strict cp1252 stdout/stderr even in modern Windows
+    terminals. Tarrafa's human-readable output uses a few typographic Unicode
+    characters, so replace only unencodable characters instead of crashing.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(errors="replace")
+            except (AttributeError, OSError, ValueError):
+                pass
 
 
 def _cmd_version() -> int:
@@ -89,7 +105,7 @@ def _cmd_init(argv: list[str]) -> int:
         notes=args.notes,
         force=rt.force,
     )
-    print(f"init: workspace → {summary['root']}")
+    print(f"init: workspace -> {summary['root']}")
     print(f"  name: {summary['name']}")
     if summary["created"]:
         print("  created:", ", ".join(summary["created"][:12]))
@@ -177,6 +193,7 @@ def _inject_defaults(tool: str, rest: list[str], rt) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_stdio()
     argv = list(sys.argv[1:] if argv is None else argv)
 
     # Load ~/.tarrafa/.env and <repo>/.env (never override existing process env)

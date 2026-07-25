@@ -53,7 +53,7 @@ def print_summary(
     if count is not None:
         parts.append(f"count={count}")
     if path:
-        parts.append(f"→ {path}")
+        parts.append(f"-> {path}")
     if rid and rt.verbose:
         parts.append(f"run={rid}")
     if extra:

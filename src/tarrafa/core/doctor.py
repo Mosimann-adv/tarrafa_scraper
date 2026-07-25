@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+from importlib import metadata
 import platform
 import sys
 from pathlib import Path
@@ -15,25 +16,30 @@ def _mod_ok(name: str) -> tuple[bool, str]:
         if spec is None:
             return False, "not installed"
         mod = importlib.import_module(name)
-        ver = getattr(mod, "__version__", getattr(mod, "VERSION", "?"))
+        ver = getattr(mod, "__version__", getattr(mod, "VERSION", None))
+        if ver is None:
+            try:
+                ver = metadata.version(name.replace("_", "-"))
+            except metadata.PackageNotFoundError:
+                ver = "installed (version unknown)"
         return True, str(ver)
     except Exception as e:
         return False, f"error: {e}"
 
 
 _HINTS: dict[str, str] = {
-    "python": "→ use Python ≥ 3.10",
-    "playwright": "→ pip install playwright && playwright install chromium",
-    "httpx": "→ pip install 'httpx>=0.27,<1'",
-    "trafilatura": "→ pip install 'trafilatura>=1.6,<3'",
-    "feedparser": "→ pip install 'feedparser>=6,<7'",
-    "chromium": "→ playwright install chromium",
-    "scrapy": "→ pip install -e '.[site]'  (optional)",
-    "yt_dlp": "→ pip install -e '.[av]'  (optional for tarrafa video --download)",
-    "ffmpeg": "→ install ffmpeg and add to PATH (optional for video frames)",
-    "storage_state.json": "→ tarrafa ig … --save-storage ./storage_state.json (optional, IG only)",
-    "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "→ put token in ~/.tarrafa/.env or <repo>/.env (optional)",
-    "tomllib": "→ Python ≥ 3.11 or pip install tomli  (for tarrafa.toml)",
+    "python": "-> use Python ≥ 3.10",
+    "playwright": "-> pip install playwright && playwright install chromium",
+    "httpx": "-> pip install 'httpx>=0.27,<1'",
+    "trafilatura": "-> pip install 'trafilatura>=1.6,<3'",
+    "feedparser": "-> pip install 'feedparser>=6,<7'",
+    "chromium": "-> playwright install chromium",
+    "scrapy": "-> pip install -e '.[site]'  (optional)",
+    "yt-dlp": "-> pip install -e '.[av]'  (optional for tarrafa video --download)",
+    "ffmpeg": "-> install ffmpeg and add to PATH (optional for video frames)",
+    "storage_state.json": "-> tarrafa ig … --save-storage ./storage_state.json (optional, IG only)",
+    "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "-> put token in ~/.tarrafa/.env or <repo>/.env (optional)",
+    "tomllib": "-> Python ≥ 3.11 or pip install tomli  (for tarrafa.toml)",
 }
 
 
@@ -63,7 +69,6 @@ def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
         ("trafilatura", True),
         ("feedparser", True),
         ("scrapy", False),
-        ("yt_dlp", False),
     ):
         ok, detail = _mod_ok(mod)
         add(mod, ok, detail, required=req)
@@ -152,7 +157,7 @@ def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
 def print_doctor(report: dict[str, Any]) -> int:
     print("Tarrafa doctor\n")
     for c in report["checks"]:
-        mark = "OK " if c["ok"] else "FAIL"
+        mark = "OK " if c["ok"] else ("FAIL" if c["required"] else "OPT ")
         req = "" if c["required"] else " (optional)"
         print(f"  [{mark}] {c['name']}{req}: {c['detail']}")
         if not c["ok"] and c.get("hint"):

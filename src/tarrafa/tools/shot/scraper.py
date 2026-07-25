@@ -431,7 +431,7 @@ def _read_urls_file(path: Path) -> list[str]:
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="tarrafa shot",
-        description="Capture high-quality page screenshot(s) → PNG + JSON envelope.",
+        description="Capture high-quality page screenshot(s) -> PNG + JSON envelope.",
     )
     ap.add_argument("--url", default=None, help="Target URL (single)")
     ap.add_argument(

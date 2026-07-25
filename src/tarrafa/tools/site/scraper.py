@@ -21,7 +21,7 @@ from tarrafa.core.writers import utc_now_iso, write_json
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="tarrafa site",
-        description="Crawl a site (BFS, same-domain) → forensic JSON envelope.",
+        description="Crawl a site (BFS, same-domain) -> forensic JSON envelope.",
     )
     ap.add_argument("--url", required=True, help="Start URL")
     ap.add_argument("--out", required=True, help="Output JSON path")

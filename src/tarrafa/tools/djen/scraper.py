@@ -425,7 +425,7 @@ def main(argv: list[str] | None = None) -> int:
         default="auto",
         help=(
             "advogado = pós-filtro OAB/nome; parte = busca teor sem filtro OAB + identity_hints; "
-            "auto = oab/nome→advogado, só texto→parte (default)"
+            "auto = oab/nome->advogado, só texto->parte (default)"
         ),
     )
     ap.add_argument("--oab", default=None, help="Número OAB (só dígitos ou máscara)")
@@ -592,7 +592,7 @@ def main(argv: list[str] | None = None) -> int:
                     timeout=args.timeout,
                 )
                 print(
-                    f"djen: datajud follow → {follow['path']}  "
+                    f"djen: datajud follow -> {follow['path']}  "
                     f"ok={follow['ok']}/{follow['lookups']}  "
                     f"errors={len(follow['errors'])}"
                 )

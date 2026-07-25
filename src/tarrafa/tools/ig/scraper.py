@@ -1116,7 +1116,7 @@ def run_scrape(args: argparse.Namespace) -> int:
 
             if round_i % CHECKPOINT_EVERY == 0:
                 write_checkpoint(store, out_path, stats_path, round_i)
-                print(f"[checkpoint] saved {store.count} → {out_path}")
+                print(f"[checkpoint] saved {store.count} -> {out_path}")
 
             # Early stop if no load-more buttons and stagnant mid-way
             btn_texts = " | ".join(b.get("text", "") for b in (dom_info.get("buttons") or [])[:40])

@@ -255,7 +255,7 @@ def _page_out_path(out: Path, url: str, index: int, *, batch: bool) -> Path:
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="tarrafa page",
-        description="Capture public page(s) → forensic JSON envelope (text + structured facts).",
+        description="Capture public page(s) -> forensic JSON envelope (text + structured facts).",
     )
     ap.add_argument("--url", default=None, help="Target URL (single)")
     ap.add_argument(

@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
 from tarrafa.cli import main as cli_main
+from tarrafa.core.doctor import print_doctor
 
 
 def test_cli_version(capsys):
@@ -20,6 +24,21 @@ def test_cli_list(capsys):
     out = capsys.readouterr().out
     for name in ("ig", "page", "site", "feed", "shot", "video", "album", "doctor"):
         assert name in out
+
+
+@pytest.mark.parametrize("command", [["list"], ["--help"]])
+def test_cli_output_survives_cp1252(command):
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "cp1252"
+    result = subprocess.run(
+        [sys.executable, "-m", "tarrafa", *command],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr.decode("cp1252", errors="replace")
+    assert b"tarrafa" in result.stdout.lower()
 
 
 def test_cli_unknown():
@@ -94,6 +113,26 @@ def test_doctor_runs():
     # may fail if deps missing; after install should pass required checks
     code = cli_main(["doctor"])
     assert code in (0, 1)
+
+
+def test_doctor_marks_missing_optional_as_optional(capsys):
+    report = {
+        "ok": True,
+        "failed_required": [],
+        "checks": [
+            {
+                "name": "optional-tool",
+                "ok": False,
+                "detail": "not installed",
+                "required": False,
+                "hint": "install it only if needed",
+            }
+        ],
+    }
+    assert print_doctor(report) == 0
+    out = capsys.readouterr().out
+    assert "[OPT ] optional-tool (optional)" in out
+    assert "All required checks passed." in out
 
 
 def test_ig_help(capsys):
