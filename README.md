@@ -29,6 +29,38 @@ Independente de IDE, vault ou assistente de IA.
 
 ---
 
+## Demo (~15 s)
+
+Um pedido → coleta aberta → HTML com facts, fontes e print.
+
+<video src="assets/tarrafa_demo_uso.mp4" controls playsinline muted preload="metadata" width="720">
+  <a href="assets/tarrafa_demo_uso.mp4">Assistir screencast (MP4, ~15&nbsp;s, ~440&nbsp;KB)</a>
+</video>
+
+[▶ Assistir screencast](assets/tarrafa_demo_uso.mp4) · MP4 · ~15 s
+
+No fluxo com assistente, o pedido é só isto:
+
+```text
+/tarrafa criar html com informações sobre example.com
+```
+
+Por baixo, o CLI equivalente (artefato em `html/perfil.html`):
+
+```bash
+tarrafa page --url https://example.com --out raw/page.json
+tarrafa shot --url https://example.com --out-dir shots --id DOC01 --full-page
+tarrafa dossier \
+  --title "Example Domain" \
+  --out html/perfil.html \
+  --meta "Site: example.com" \
+  --fact "Página pública capturada via tarrafa page (HTTP 200)" \
+  --source "Example Domain | https://example.com" \
+  --shot "DOC01=shots/DOC01.png::Captura full-page"
+```
+
+---
+
 ## Em 30 segundos
 
 ```bash
@@ -36,7 +68,7 @@ tarrafa page --url https://example.com --out ./out/page.json
 ```
 
 ```text
-page: · ok · count=1 · -> out/page.json · text_len=76
+page: · ok · count=1 · -> out/page.json · text_len=112
 ```
 
 O resultado é um envelope JSON com fonte, horário de coleta, método, conteúdo,
