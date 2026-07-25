@@ -12,7 +12,6 @@ Descoberta de CNPJ (busca web / usuário) fica na orquestração (skill perfil).
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path

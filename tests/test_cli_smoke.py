@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -45,6 +45,7 @@ def test_cli_unknown():
     assert cli_main(["nope"]) == 2
 
 
+@pytest.mark.integration
 def test_page_http_example(tmp_path: Path):
     out = tmp_path / "page.json"
     code = cli_main(
@@ -65,6 +66,7 @@ def test_page_http_example(tmp_path: Path):
     assert data["items"][0].get("text_len", 0) > 0 or data["items"][0].get("title")
 
 
+@pytest.mark.integration
 def test_site_example_shallow(tmp_path: Path):
     out = tmp_path / "site.json"
     code = cli_main(
@@ -86,6 +88,7 @@ def test_site_example_shallow(tmp_path: Path):
     assert data["count"] >= 1
 
 
+@pytest.mark.integration
 def test_feed_bbc_world(tmp_path: Path):
     """Public RSS; skip if network blocked."""
     out = tmp_path / "feed.json"
@@ -143,6 +146,7 @@ def test_ig_help(capsys):
     assert "url" in out or "instagram" in out
 
 
+@pytest.mark.integration
 def test_shot_and_album_example(tmp_path: Path):
     shots = tmp_path / "shots"
     code = cli_main(

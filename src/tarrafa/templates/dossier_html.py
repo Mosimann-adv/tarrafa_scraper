@@ -199,6 +199,8 @@ def render_dossier(
         toc_links.append(("#capturas", "Capturas"))
     if gaps:
         toc_links.append(("#lacunas", "Limites"))
+    if notes:
+        toc_links.append(("#notas", "Notas"))
 
     toc_html = ""
     if toc_links:
@@ -252,10 +254,6 @@ def render_dossier(
         "Imagens embutidas (base64) quando disponíveis. "
         "Não inventa biografia nem classifica risco.</p>"
     )
-    notes_html = ""
-    if notes:
-        notes_html = _render_list(notes)
-
     # --- identification (after síntese for scan path) ---
     id_section = ""
     if meta_rows:
@@ -391,6 +389,14 @@ def render_dossier(
 <section id="lacunas">
   <h2>Lacunas e limites</h2>
   <p class="muted">Nenhuma lacuna registrada neste inventário.</p>
+</section>"""
+
+    notes_section = ""
+    if notes:
+        notes_section = f"""
+<section id="notas">
+  <h2>Notas</h2>
+  {_render_list(notes)}
 </section>"""
 
     footer = footer or (
@@ -812,6 +818,7 @@ def render_dossier(
 {sources_section}
 {shots_section}
 {gaps_section}
+{notes_section}
 
 <footer class="doc">{_e(footer)}</footer>
 

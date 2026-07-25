@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import importlib.util
-from importlib import metadata
 import platform
 import sys
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
@@ -102,7 +102,7 @@ def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
     except Exception as e:
         add("chromium", False, str(e))
 
-    from tarrafa.core.media import has_ffmpeg, has_yt_dlp, which
+    from tarrafa.core.media import has_yt_dlp, which
 
     ff = which("ffmpeg")
     add("ffmpeg", bool(ff), ff or "not in PATH (needed for video frames from file)", required=False)

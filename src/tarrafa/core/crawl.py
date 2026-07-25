@@ -6,8 +6,8 @@ from collections import deque
 from typing import Any, Callable
 from urllib.parse import urldefrag, urlparse
 
-from tarrafa.core.http import fetch_url, same_registrable_host
 from tarrafa.core.extract import extract_article
+from tarrafa.core.http import fetch_url, same_registrable_host
 
 
 def _canon(url: str) -> str:

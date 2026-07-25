@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from tarrafa.core.identity_extract import extract_identity_hints, format_cpf, format_cnj, merge_hints
+from tarrafa.core.identity_extract import (
+    extract_identity_hints,
+    format_cnj,
+    format_cpf,
+    merge_hints,
+)
 
 
 def test_format_cpf_cnj():

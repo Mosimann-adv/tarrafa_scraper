@@ -12,7 +12,6 @@ import argparse
 import sys
 from pathlib import Path
 
-
 TOOLS = [
     ("init", "Create optional workspace (tarrafa.toml + raw/shots/html/logs/meta)"),
     ("ig", "Instagram post/reel comments -> forensic JSON (permalinks /c/)"),
@@ -208,8 +207,8 @@ def main(argv: list[str] | None = None) -> int:
     tool, rest, gflags = _split_global_argv(argv)
 
     from tarrafa.core.config import load_config
-    from tarrafa.core.runtime import Runtime, reset_runtime, set_runtime
     from tarrafa.core.run import finish_run, start_run
+    from tarrafa.core.runtime import Runtime, reset_runtime, set_runtime
 
     ws_arg = gflags.get("workspace")
     workspace = Path(ws_arg).expanduser().resolve() if ws_arg else None

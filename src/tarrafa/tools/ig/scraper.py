@@ -19,11 +19,9 @@ import argparse
 import json
 import re
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -826,18 +824,6 @@ async ({ source, maxComments, expandReplies }) => {
 
 def url_is_dangerous_auth_flow(url: str) -> bool:
     u = (url or "").lower()
-    bad = (
-        "password/reset",
-        "accounts/password",
-        "recover/initiate",
-        "facebook.com/login",
-        "facebook.com/v",
-        "fb.com/",
-        "signupviafb",
-        "oidc",
-        "accounts/onetap",  # warn only — not always fatal
-    )
-    # Fatal ones
     fatal = (
         "password/reset",
         "accounts/password",

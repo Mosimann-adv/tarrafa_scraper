@@ -303,8 +303,8 @@ def extract_article(
         title = title or meta["og:title"]
 
     try:
-        from trafilatura import extract as traf_extract
         from trafilatura import bare_extraction
+        from trafilatura import extract as traf_extract
 
         bare = bare_extraction(html, url=url, include_comments=False, include_tables=True)
         if bare:

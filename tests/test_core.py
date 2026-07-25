@@ -4,11 +4,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tarrafa.core.crawl import _canon
 from tarrafa.core.envelope import build_envelope
+from tarrafa.core.extract import extract_article
 from tarrafa.core.http import normalize_link, same_registrable_host
 from tarrafa.core.writers import utc_now_iso, write_json, write_jsonl
-from tarrafa.core.extract import extract_article
-from tarrafa.core.crawl import _canon
 
 
 def test_utc_now_iso_format():

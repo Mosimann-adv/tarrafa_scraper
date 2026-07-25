@@ -373,7 +373,7 @@ def _follow_datajud(
     max_cnj: int,
     timeout: float,
 ) -> dict[str, Any]:
-    from tarrafa.tools.datajud.scraper import lookup_cnj, get_api_key, digits_cnj
+    from tarrafa.tools.datajud.scraper import digits_cnj, get_api_key, lookup_cnj
 
     key = get_api_key()
     selected = cnjs[: max(1, max_cnj)]

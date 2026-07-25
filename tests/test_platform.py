@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from tarrafa.cli import main as cli_main
 from tarrafa.core.config import load_config
-from tarrafa.core.run import sanitize_argv, start_run, finish_run
+from tarrafa.core.run import finish_run, sanitize_argv, start_run
 from tarrafa.core.workspace import init_workspace
 
 
@@ -81,6 +83,7 @@ def test_run_manifest_records_artifact(tmp_path: Path):
     assert data["artifacts"][0]["sha256"]
 
 
+@pytest.mark.integration
 def test_cli_page_records_run_in_workspace(tmp_path: Path):
     ws = tmp_path / "caso"
     assert cli_main(["init", str(ws), "--name", "Net"]) == 0
@@ -110,6 +113,7 @@ def test_cli_page_records_run_in_workspace(tmp_path: Path):
     assert any(str(out.resolve()) in p or p.endswith("page.json") for p in paths)
 
 
+@pytest.mark.integration
 def test_page_batch_urls_file(tmp_path: Path):
     urls = tmp_path / "urls.txt"
     urls.write_text(
@@ -134,6 +138,7 @@ def test_page_batch_urls_file(tmp_path: Path):
     assert len(files) == 2
 
 
+@pytest.mark.integration
 def test_no_clobber_refuses_overwrite(tmp_path: Path):
     out = tmp_path / "once.json"
     assert (

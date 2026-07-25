@@ -65,6 +65,7 @@ def test_build_dossier_perfil_theme(tmp_path: Path):
         shots=[{"id": "web", "path": str(shot), "caption": "Print web", "url": "https://example.com"}],
         timeline=[{"when": "2020", "text": "Início"}],
         gaps=["Sem telefone"],
+        notes=["Fixture sintética para teste"],
         chips=["chip-a"],
         quote="Resumo curto.",
         embed=True,
@@ -75,6 +76,7 @@ def test_build_dossier_perfil_theme(tmp_path: Path):
     assert "Teste Pessoa" in html
     assert "data:image/png;base64," in html
     assert "Sem telefone" in html
+    assert "Fixture sintética para teste" in html
     assert "Formado em Y" in html
     assert "avatar-wrap" in html  # tema perfil (Custódio)
     assert "Síntese" in html or "sintese" in html
