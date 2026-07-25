@@ -21,6 +21,7 @@ Platform foundation (agnostic of any single use case).
 - Stdout summaries slightly normalized via shared helper
 - Testes determinísticos rodam no CI principal; rede/Chromium ficaram em workflow próprio
 - Saída do CLI tolera consoles Windows legados e o `doctor` distingue opcionais ausentes
+- `doctor` procura `storage_state.json` no diretório atual também quando instalado por wheel
 
 ### Security
 - Manifests agora mascaram `--api-key`, credenciais, sessões e opções equivalentes

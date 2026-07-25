@@ -12,7 +12,7 @@ import pytest
 
 from tarrafa import __version__
 from tarrafa.cli import main as cli_main
-from tarrafa.core.doctor import print_doctor
+from tarrafa.core.doctor import _default_storage_hint, print_doctor
 
 
 def test_cli_version(capsys):
@@ -122,6 +122,11 @@ def test_doctor_runs():
     # may fail if deps missing; after install should pass required checks
     code = cli_main(["doctor"])
     assert code in (0, 1)
+
+
+def test_doctor_default_storage_hint_is_cwd(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert _default_storage_hint() == tmp_path / "storage_state.json"
 
 
 def test_doctor_marks_missing_optional_as_optional(capsys):

@@ -43,6 +43,10 @@ _HINTS: dict[str, str] = {
 }
 
 
+def _default_storage_hint() -> Path:
+    return Path.cwd() / "storage_state.json"
+
+
 def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
     from tarrafa import __version__
 
@@ -111,7 +115,7 @@ def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
     add("yt-dlp", has_yt_dlp(), ytd_detail, required=False)
 
     if storage_hint is None:
-        storage_hint = Path(__file__).resolve().parents[3] / "storage_state.json"
+        storage_hint = _default_storage_hint()
     add(
         "storage_state.json",
         storage_hint.is_file(),
