@@ -5,10 +5,12 @@ import json
 import os
 import subprocess
 import sys
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
 
+from tarrafa import __version__
 from tarrafa.cli import main as cli_main
 from tarrafa.core.doctor import print_doctor
 
@@ -17,6 +19,10 @@ def test_cli_version(capsys):
     assert cli_main(["version"]) == 0
     out = capsys.readouterr().out
     assert "tarrafa" in out
+
+
+def test_distribution_version_matches_package():
+    assert version("tarrafa-scraper") == __version__
 
 
 def test_cli_list(capsys):
