@@ -1,0 +1,31 @@
+{
+  "source": "https://www.instagram.com/p/SHORTCODE/",
+  "collected_at": "2026-07-25T12:00:00.000Z",
+  "count": 1,
+  "public_comment_count": 100,
+  "cLinks": 1,
+  "with_comment_id": 1,
+  "with_parent_id": 0,
+  "methods": ["api_v1"],
+  "note": "Example payload only.",
+  "limitations": [
+    "Sample may be partial vs public_comment_count."
+  ],
+  "comments": [
+    {
+      "comment_id": "18100000000000000",
+      "url": "https://www.instagram.com/p/SHORTCODE/c/18100000000000000/",
+      "user": "example_user",
+      "profile_url": "https://www.instagram.com/example_user/",
+      "text": "Example comment text.",
+      "likes": "12 curtidas",
+      "likes_n": 12,
+      "parent_id": null,
+      "is_reply": false,
+      "timestamp_iso": "2026-07-23T10:00:00.000Z",
+      "collected_at": "2026-07-25T12:00:00.000Z",
+      "source_post": "https://www.instagram.com/p/SHORTCODE/",
+      "_from": "api_v1"
+    }
+  ]
+}

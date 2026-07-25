@@ -1,0 +1,134 @@
+# Agent instructions — Tarrafa
+
+Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or case vault.
+
+**License:** PolyForm Noncommercial 1.0.0 (`LICENSE`) — attribution required; no commercial use without separate permission.
+
+## Platform (v0.4+)
+
+| Pedido | Comando / regra |
+|--------|-----------------|
+| Novo caso / pasta | `tarrafa init DIR --name "…"` → `tarrafa.toml` + raw/shots/html/logs/meta |
+| Flags globais | antes da tool: `-v` `--quiet` `--force` `--no-clobber` `--timeout` `--out-dir` `--workspace` `--json-logs` |
+| Workspace | **opcional**; tools aceitam `--out` solto. Com workspace, runs em `meta/runs/*.json` |
+| Batch URLs | `page` / `shot` com `--urls-file` |
+| Config | flags → env `TARRAFA_*` → `./tarrafa.toml` → `~/.tarrafa/config.toml` |
+
+## When to use
+
+| Pedido | Comando |
+|--------|---------|
+| Comentários IG + permalink `/c/` | `tarrafa ig` |
+| Uma página pública (texto/links/facts) | `tarrafa page` |
+| Crawl shallow de site | `tarrafa site` |
+| RSS/Atom | `tarrafa feed` |
+| Print de tela de alta qualidade | `tarrafa shot` |
+| Vídeo: meta + frames (+ download) | `tarrafa video` |
+| HTML impressão a partir de shots/frames | `tarrafa album` |
+| Ficha HTML perfil (avatar + achados + fontes + prints seletivos) | `tarrafa dossier` |
+| CNPJ (API open CNPJá) — todo perfil | `tarrafa cnpj` |
+| DJEN comunicações — advogado (`--oab`) ou parte (`--papel parte --texto`) | `tarrafa djen` |
+| Datajud capa/movimentos (CNJ) — após DJEN / CNJs conhecidos | `tarrafa datajud` |
+| Texto + identity hints de PDFs (autos) | `tarrafa pdf-extract` |
+| Checar ambiente | `tarrafa doctor` |
+
+## Paths
+
+Prefer the installed console script after `pip install -e .`:
+
+```text
+tarrafa                  # on PATH (venv ativado)
+~/.tarrafa/.env          # user-global env (preferido)
+<repo>/.env              # projeto (gitignored)
+.env.example             # template commitável
+```
+
+Windows (venv local), se o script ainda não estiver no PATH:
+
+```text
+.\.venv\Scripts\tarrafa.exe
+```
+
+## Commands
+
+```bash
+tarrafa list
+tarrafa doctor
+
+tarrafa page --url "URL" --out "OUT.json"
+tarrafa shot --url "URL" --out-dir "OUT_DIR" --id SHOT01 --full-page --dpr 2
+tarrafa album --dir "OUT_DIR" --out "OUT_DIR/album.html" --title "…" --kicker "Inventário visual"
+
+tarrafa dossier \
+  --title "Nome" --out "OUT_DIR/perfil.html" \
+  --avatar "OUT_DIR/foto.png" \
+  --meta "Campo: valor" \
+  --fact "Achado com fonte citada" \
+  --source "Fonte | https://… | nota" \
+  --shot "print1=OUT_DIR/print.png::Legenda" \
+  --gap "Lacuna honestamente registrada"
+
+tarrafa cnpj --cnpj "00.000.000/0001-91" --out "OUT_DIR/cnpj.json"
+tarrafa djen --oab 12345 --uf SP --max-items 100 --out "OUT_DIR/djen.json"
+tarrafa djen --papel parte --texto "Nome Completo" --max-items 50 --out "OUT_DIR/djen_parte.json"
+tarrafa djen --papel parte --texto "handle" --follow-datajud \
+  --datajud-out "OUT_DIR/datajud.json" --out "OUT_DIR/djen.json"
+tarrafa datajud --cnj "0000000-00.0000.0.00.0000" --out "OUT_DIR/datajud.json"
+tarrafa pdf-extract --dir "OUT_DIR/pdfs" --recursive --out "OUT_DIR/pdf_extract.json"
+
+tarrafa video --url "URL" --out-dir "OUT_DIR" --id VID01 --frames 5
+# optional download: --download  (yt-dlp)
+
+tarrafa ig --url "POST_URL" --out "OUT.json" \
+  --storage-state "./storage_state.json" --expand-replies --headed
+```
+
+## Local env (Playwright MCP)
+
+```text
+~/.tarrafa/.env     # preferido (user-global)
+<repo>/.env         # projeto (gitignored)
+.env.example        # template
+```
+
+- Variável: `PLAYWRIGHT_MCP_EXTENSION_TOKEN` — token da extensão Playwright MCP (Chrome real).
+- O CLI chama `load_tarrafa_env()` no startup; **não sobrescreve** env já definido no processo.
+- `tarrafa doctor` mostra se o token está presente (valor mascarado).
+- **Nunca** commitar `.env`, token em README, ou hardcode em código.
+- Para sessão IG logada de verdade, preferir extensão Playwright MCP; `storage_state.json` continua válido no Chromium do CLI.
+
+## Hard rules
+
+1. Prefer **CLI** over reinventing scrapers in browser eval.
+2. Never type passwords; never automate Facebook OIDC / password-reset.
+3. Write outputs into the **output path** the user names.
+4. Do not commit `storage_state.json` or `.env`.
+5. Report counts, paths, errors, exit codes.
+6. Classification / case PDF generation stay **out of this repo**, except print-ready HTML from `album` / `dossier`.
+7. Material-only: capture evidence, do not classify ofensas.
+8. `dossier` only **renders** provided avatar/meta/facts/sources/shots — no web search, no biography invention. Prefer multi-source overview e prints seletivos; nunca embutir login wall.
+9. `cnpj` is for **any profile** (needs CNPJ number).
+10. `djen`: **advogado** → `--oab`+`--uf` (pós-filtro); **parte** → `--papel parte --texto` nome completo e/ou handle (`identity_hints` no summary). Optional `--follow-datajud`. Do **not** fuse processes by short name alone (homônimo).
+11. `datajud`: only with known CNJs (from DJEN or other sources); index typically has **no** party names.
+12. `pdf-extract`: material-only identity/contact/CNJ hints from court PDFs; validate before citing.
+13. **Perfil / influencer:** ver `docs/PROFILE_PIPELINE.md` (IG shots, homônimo/CPF, djen parte, V1 HTML vs V2 anexo).
+14. **IG prints:** prefer `tarrafa shot --out-dir CASO/shots` (grava no path do caso). MCP may refuse paths outside session roots — copy into the case if needed. Never embed login-wall shots in `dossier`.
+15. **CPF vs CNPJ mask:** CNPJá `***ABCDEF**` ≈ CPF digits 4–9. Do **not** attach a company QSA to the person if the mask does not match the CPF from court PDFs.
+16. Judicial annex PDF (Times, no internal paths) is **orchestration**, not a CLI tool — keep case narrative out of this repo.
+
+## Exit codes (common)
+
+| Code | Meaning |
+|------|---------|
+| 0 | OK |
+| 2 | Bad args / missing dep / unknown tool |
+| 3–5 | IG-specific (nav / auth / login wall) |
+| 6 | Zero items |
+
+## Adding a tool
+
+See `docs/ADDING_TOOLS.md`.
+
+## Profile pipeline (learned)
+
+See **`docs/PROFILE_PIPELINE.md`**: order of collection, Instagram capture pitfalls, party DJEN, pdf-extract, dual V1/V2 deliverables, homonym discipline.
