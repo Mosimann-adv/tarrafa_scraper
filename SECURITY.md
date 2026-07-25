@@ -31,6 +31,11 @@ Para reportar bug de captura, use **URL pública de exemplo**, fixture sintétic
 
 Preferir `tarrafa init` em pasta **fora** deste repo e gravar outputs só no workspace do caso.
 
+Prefira variáveis de ambiente para credenciais. Embora o Tarrafa masque opções
+sensíveis conhecidas nos manifests de execução, valores passados diretamente na
+linha de comando também podem ficar visíveis temporariamente na lista de
+processos do sistema operacional.
+
 ## Uso lícito
 
 - Respeite ToS dos sites, LGPD e demais normas aplicáveis.  

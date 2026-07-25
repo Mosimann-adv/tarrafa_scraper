@@ -13,7 +13,10 @@ from tarrafa.core.media import file_sha256
 from tarrafa.core.writers import utc_now_iso, write_json
 
 _SENSITIVE = re.compile(
-    r"(token|password|secret|authorization|cookie|storage.state)",
+    (
+        r"(token|password|passwd|secret|authorization|cookie|credential|"
+        r"storage[-_.]?state|api[-_.]?key|session(?:id)?)"
+    ),
     re.I,
 )
 

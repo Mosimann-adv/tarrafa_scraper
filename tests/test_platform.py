@@ -41,11 +41,27 @@ def test_load_config_workspace(tmp_path: Path):
     assert cfg.path("raw") == (tmp_path / "raw").resolve()
 
 
-def test_sanitize_argv_redacts_token():
-    out = sanitize_argv(["--storage-state", "secret.json", "--url", "https://x"])
-    assert out[0] == "--storage-state"
-    assert out[1] == "***"
-    assert out[3] == "https://x"
+def test_sanitize_argv_redacts_sensitive_options():
+    out = sanitize_argv(
+        [
+            "--storage-state",
+            "secret.json",
+            "--api-key=super-secret-key",
+            "--authorization",
+            "Bearer synthetic",
+            "--url",
+            "https://x",
+        ]
+    )
+    assert out == [
+        "--storage-state",
+        "***",
+        "--api-key=***",
+        "--authorization",
+        "***",
+        "--url",
+        "https://x",
+    ]
 
 
 def test_run_manifest_records_artifact(tmp_path: Path):
