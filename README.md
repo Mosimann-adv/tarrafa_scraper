@@ -27,79 +27,376 @@ Independente de IDE, vault ou assistente de IA.
 | Distribuição | Código-fonte público sob licença não comercial |
 | Licença | [PolyForm Noncommercial 1.0.0](LICENSE) — créditos obrigatórios · **sem uso comercial** |
 
+> **Você não precisa ler o README inteiro.** Escolha seu caminho:
+>
+> - IA com acesso ao terminal: [instalação guiada pela IA](#instalação-guiada-pela-ia).
+> - Chat sem acesso ao computador: [instalação manual no Windows](#instalação-manual-no-windows).
+> - Tarrafa já instalada: [primeiro uso com a IA](#primeiro-uso-com-a-ia).
+> - Usuário técnico: [referência rápida](#referência-rápida).
+
 ---
 
-## Em 30 segundos
+## Comece aqui, mesmo sem saber programar
 
-```bash
-tarrafa page --url https://example.com --out ./out/page.json
-```
+A Tarrafa é um programa que trabalha por comandos de texto. Você pode escrever
+esses comandos, mas também pode pedir para uma IA com acesso ao terminal
+executá-los por você.
+
+Na prática, você diz algo como:
+
+> “Use a Tarrafa para salvar o texto e tirar um print desta página. Crie uma
+> pasta chamada `minha-pesquisa` e me explique o que foi encontrado.”
+
+A IA escolhe os comandos, executa a coleta e informa onde os arquivos foram
+salvos.
+
+Você não precisa aprender Python para usar o básico. É importante apenas
+entender estas três ideias:
+
+1. **A IA precisa ter acesso ao terminal do seu computador.** Um chat comum,
+   sem acesso a arquivos ou terminal, pode orientar você, mas não consegue
+   instalar nem executar a Tarrafa.
+2. **A Tarrafa cria arquivos no seu computador.** Ela pode gerar JSON com dados,
+   PNG com prints, PDF baixado e HTML pronto para abrir ou imprimir.
+3. **Você continua responsável pela conferência.** A Tarrafa é experimental;
+   sites mudam, coletas podem falhar e uma IA também pode interpretar algo
+   incorretamente.
+
+### O que significa “IA com acesso ao terminal”?
+
+É um assistente de IA instalado ou aberto dentro de um ambiente que consegue
+ler a pasta do projeto e executar comandos. Se a sua IA mostrar pedidos de
+permissão para usar o terminal ou alterar arquivos, leia o pedido antes de
+autorizar.
+
+Se você usa apenas um chat no navegador ou celular, peça que ele acompanhe a
+[instalação manual](#instalação-manual-no-windows), copiando para o chat
+qualquer mensagem de erro.
+
+---
+
+## Instalação guiada pela IA
+
+Este é o caminho mais simples para quem já usa uma IA com terminal.
+
+### 1. Abra a IA na pasta onde deseja instalar
+
+Escolha uma pasta comum, por exemplo:
 
 ```text
-page: · ok · count=1 · -> out/page.json · text_len=112
+C:\Users\SeuNome\Documents
 ```
 
-O resultado é um envelope JSON com fonte, horário de coleta, método, conteúdo,
-erros e notas. Capturas e vídeos também registram SHA-256. Veja um
-[artefato de exemplo](examples/page_capture.example.json).
+Evite instalar dentro de pastas do sistema, como `C:\Windows` ou
+`C:\Program Files`.
+
+### 2. Envie este prompt para a IA
+
+Copie e cole o texto abaixo:
+
+```text
+Quero instalar a Tarrafa neste computador para uso não comercial.
+
+Repositório:
+https://github.com/Mosimann-adv/tarrafa_scraper
+
+Você tem autorização para:
+1. verificar se Git e Python 3.10 ou superior estão instalados;
+2. clonar o repositório nesta pasta;
+3. criar um ambiente virtual chamado .venv;
+4. instalar o projeto e o Chromium do Playwright;
+5. executar o diagnóstico da Tarrafa.
+
+Assim que clonar o repositório, leia o AGENTS.md antes de instalar ou executar
+a Tarrafa. Não digite nem solicite minhas senhas, não configure login do
+Facebook/Instagram e não altere configurações globais sem me explicar antes.
+Se faltar Git ou Python, pare e me mostre o link oficial e o que preciso marcar
+na instalação.
+
+Ao final, informe:
+- a pasta exata onde a Tarrafa foi instalada;
+- o resultado de tarrafa doctor;
+- o comando que devo usar para verificar tarrafa list;
+- qualquer erro ou dependência opcional ainda ausente.
+```
+
+### 3. Confira o resultado
+
+A instalação básica está pronta quando a IA consegue executar:
+
+```powershell
+.\.venv\Scripts\tarrafa.exe doctor
+.\.venv\Scripts\tarrafa.exe list
+```
+
+O `doctor` pode avisar que programas opcionais, como `ffmpeg` ou `yt-dlp`, não
+estão instalados. Isso não impede as coletas básicas de páginas e screenshots.
 
 ---
 
-## Como usar
+## Instalação manual no Windows
 
-Fluxo típico de um caso:
+Use esta seção se a sua IA não consegue executar comandos.
 
-1. **Instalar** (uma vez) — veja [Instalação](#instalação) abaixo.
-2. **Checar o ambiente:** `tarrafa doctor`  
-3. **(Opcional) criar pasta do caso:**
+### Antes de começar
+
+Instale, pelos sites oficiais:
+
+- [Python](https://www.python.org/downloads/) 3.10 ou superior. Durante a
+  instalação, marque a opção para adicionar o Python ao `PATH`.
+- [Git](https://git-scm.com/downloads), usado para baixar e atualizar o projeto.
+
+Depois, abra o **PowerShell** dentro da pasta em que deseja guardar a Tarrafa.
+Uma forma simples é abrir a pasta no Explorador de Arquivos, clicar na barra de
+endereço, digitar `powershell` e pressionar Enter.
+
+### Copie e execute um comando por vez
+
+```powershell
+git clone https://github.com/Mosimann-adv/tarrafa_scraper.git
+```
+
+```powershell
+cd tarrafa_scraper
+```
+
+```powershell
+py -3 -m venv .venv
+```
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+```
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install .
+```
+
+```powershell
+.\.venv\Scripts\python.exe -m playwright install chromium
+```
+
+```powershell
+.\.venv\Scripts\tarrafa.exe doctor
+```
+
+```powershell
+.\.venv\Scripts\tarrafa.exe list
+```
+
+Se o Windows disser que `py` não existe, feche e abra novamente o PowerShell.
+Se continuar falhando, tente:
+
+```powershell
+python -m venv .venv
+```
+
+Não é necessário ativar o ambiente virtual: os exemplos acima chamam
+diretamente os programas instalados dentro de `.venv`.
+
+---
+
+## Primeiro uso com a IA
+
+Abra a IA dentro da pasta `tarrafa_scraper` e envie um dos prompts abaixo.
+
+### Capturar uma página pública
+
+```text
+Leia o AGENTS.md e use a Tarrafa já instalada nesta pasta.
+
+Capture o texto e os dados públicos desta URL:
+https://example.com
+
+Salve tudo dentro de uma nova pasta chamada minha-primeira-coleta.
+Use o CLI da Tarrafa, não escreva outro scraper.
+
+Ao terminar, informe:
+- o comando executado;
+- o exit code;
+- os arquivos criados;
+- a quantidade de itens;
+- os erros ou limitações da coleta;
+- um resumo simples do conteúdo encontrado.
+```
+
+### Tirar um print de uma página
+
+```text
+Use a Tarrafa para tirar um screenshot de página inteira desta URL:
+COLE_A_URL_AQUI
+
+Salve em ./minha-primeira-coleta/shots com o identificador PAGINA01.
+Não sobrescreva arquivos existentes. Ao final, mostre o caminho do PNG e do
+JSON de metadados e diga se a captura terminou sem erros.
+```
+
+### Consultar um CNPJ
+
+```text
+Use tarrafa cnpj para consultar o CNPJ 00.000.000/0001-91.
+Salve o resultado em ./minha-primeira-coleta/cnpj.json.
+Não invente informações e diferencie claramente dado encontrado, ausência de
+dado e erro da fonte.
+```
+
+### Organizar várias coletas em uma pasta
+
+```text
+Crie um workspace Tarrafa chamado pesquisa-exemplo.
+Depois use tarrafa doctor e me mostre quais pastas foram criadas.
+Não faça nenhuma coleta ainda.
+```
+
+### Pedir ajuda quando algo falhar
+
+```text
+A execução da Tarrafa falhou. Leia toda a mensagem abaixo, execute primeiro
+apenas verificações que não alterem meus arquivos e explique o problema em
+linguagem simples.
+
+Depois proponha a correção mais segura e peça autorização antes de instalar
+algo novo ou apagar arquivos.
+
+MENSAGEM DE ERRO:
+COLE_AQUI_A_MENSAGEM_COMPLETA
+```
+
+Nos prompts, substitua `COLE_A_URL_AQUI` e os dados de exemplo pelos dados que
+você realmente quer pesquisar.
+
+### Modelo para qualquer pedido
+
+Quando não houver um exemplo pronto, use este formato:
+
+```text
+Leia o AGENTS.md e use o CLI da Tarrafa disponível nesta pasta.
+
+Objetivo:
+DESCREVA_O_QUE_VOCÊ_QUER_COLETAR
+
+Fontes ou dados de entrada:
+COLE_AS_URLS_OU_DADOS_AQUI
+
+Pasta de saída:
+./minha-pesquisa
+
+Regras:
+- não invente dados nem substitua a Tarrafa por outro scraper;
+- não sobrescreva arquivos existentes;
+- não faça login nem solicite senhas;
+- diferencie resultado encontrado, lacuna e erro;
+- ao terminar, informe comandos, exit codes, arquivos, contagens e limitações;
+- explique o resultado final em linguagem simples.
+```
+
+---
+
+## Entendendo os arquivos criados
+
+| Extensão | O que é | Como abrir |
+|----------|----------|------------|
+| `.json` | Dados estruturados, fontes, horários, erros e notas | Peça para a IA resumir ou abra em editor de texto |
+| `.png` | Screenshot da página | Fotos, navegador ou visualizador de imagens |
+| `.html` | Relatório ou álbum autocontido | Navegador; também pode imprimir em PDF |
+| `.pdf` | Documento baixado da fonte | Leitor de PDF |
+
+O JSON comum da Tarrafa registra a fonte consultada, o horário da coleta, o
+método usado, os itens encontrados, erros e observações. Capturas e vídeos
+também podem registrar SHA-256, uma impressão digital usada para conferir se o
+arquivo mudou.
+
+Veja um [artefato de exemplo](examples/page_capture.example.json).
+
+---
+
+## Cuidados importantes
+
+- Não cole senhas em prompts, comandos, arquivos `.env` ou issues do GitHub.
+- Não envie `storage_state.json` para outras pessoas: ele pode conter uma sessão
+  autenticada.
+- Não peça para a IA automatizar login do Facebook ou recuperação de senha.
+- Diga sempre em qual pasta a IA deve salvar os resultados.
+- Use `--no-clobber` quando não quiser sobrescrever arquivos existentes.
+- Confira os arquivos e as fontes antes de usar qualquer resultado como prova.
+- A licença padrão permite uso **não comercial**. Uso profissional ou comercial
+  pode exigir autorização específica; consulte a seção [Licença](#licença).
+
+---
+
+## Referência rápida
+
+Se a Tarrafa estiver instalada na `.venv` local, uma IA no Windows pode usar
+`.\.venv\Scripts\tarrafa.exe`. Com o ambiente virtual ativado ou o programa
+instalado no sistema, o comando curto é apenas `tarrafa`.
+
+Fluxo típico:
+
+1. **Checar o ambiente:** `tarrafa doctor`.
+2. **Opcionalmente criar uma pasta de trabalho:**
+
    ```bash
    tarrafa init ./meu-caso --name "Meu caso"
    ```
-   Isso cria `tarrafa.toml` e as pastas `raw/`, `shots/`, `html/`, `logs/`, `meta/runs/`.  
-   O workspace é **opcional**: você pode gravar em qualquer `--out` / `--out-dir`.  
-4. **Capturar** com a tool certa (sempre diga **onde** salvar):
+
+   Isso cria `tarrafa.toml` e as pastas `raw/`, `shots/`, `html/`, `logs/` e
+   `meta/runs/`. O workspace é opcional: também é possível gravar em qualquer
+   caminho informado por `--out` ou `--out-dir`.
+
+3. **Escolher a ferramenta e indicar onde salvar:**
 
 | Quero… | Comando base |
-|--------|----------------|
-| Texto + facts de uma URL | `tarrafa page --url URL --out ./raw/page.json` |
+|--------|--------------|
+| Texto e dados de uma URL | `tarrafa page --url URL --out ./raw/page.json` |
 | Várias URLs de uma vez | `tarrafa page --urls-file urls.txt --out ./raw/pages/` |
-| Print de tela (prova visual) | `tarrafa shot --url URL --out-dir ./shots --id DOC01` |
+| Print de tela | `tarrafa shot --url URL --out-dir ./shots --id DOC01` |
 | Comentários de post no Instagram | `tarrafa ig --url POST_URL --out ./raw/ig.json --storage-state ./storage_state.json --headed` |
-| CNPJ | `tarrafa cnpj --cnpj 00.000.000/0001-91 --out ./raw/cnpj.json` |
-| Diário (advogado) | `tarrafa djen --oab 12345 --uf SP --out ./raw/djen.json` |
-| Diário (parte / nome no teor) | `tarrafa djen --papel parte --texto "Nome Completo" --out ./raw/djen.json` |
+| Consultar CNPJ | `tarrafa cnpj --cnpj 00.000.000/0001-91 --out ./raw/cnpj.json` |
+| Diário por advogado | `tarrafa djen --oab 12345 --uf SP --out ./raw/djen.json` |
+| Diário por parte | `tarrafa djen --papel parte --texto "Nome Completo" --out ./raw/djen.json` |
 | Processo por CNJ | `tarrafa datajud --cnj … --out ./raw/datajud.json` |
-| Inteiro teor STJ (SCON) | `tarrafa stj --warmup --headed --save-storage ./stj.json` depois download com `--storage-state` |
-| Texto de PDFs de autos | `tarrafa pdf-extract --dir ./pdfs --recursive --out ./raw/pdf.json` |
-| Álbum / ficha para impressão | `tarrafa album …` / `tarrafa dossier …` |
+| Inteiro teor do STJ | `tarrafa stj --warmup --headed --save-storage ./stj.json` |
+| Extrair texto de PDFs | `tarrafa pdf-extract --dir ./pdfs --recursive --out ./raw/pdf.json` |
+| Álbum ou ficha para impressão | `tarrafa album …` / `tarrafa dossier …` |
 
-5. **Ajuda de cada tool:** `tarrafa <tool> --help` · lista: `tarrafa list`  
-6. **Flags globais** (antes do nome da tool):
+Ajuda de cada ferramenta:
+
+```bash
+tarrafa list
+tarrafa page --help
+tarrafa shot --help
+```
+
+Flags globais aparecem antes do nome da ferramenta:
 
 ```bash
 tarrafa --workspace ./meu-caso -v page --url https://example.com --out raw/page.json
-tarrafa --no-clobber page --url … --out raw/page.json   # recusa sobrescrever
-tarrafa --force page --url … --out raw/page.json          # permite com no_clobber
+tarrafa --no-clobber page --url URL --out raw/page.json
+tarrafa --force page --url URL --out raw/page.json
 ```
 
-Com workspace ativo, cada execução grava histórico em `meta/runs/<run_id>.json` (args sanitizados, artefatos + sha256, exit code).
+Com workspace ativo, cada execução grava histórico em
+`meta/runs/<run_id>.json`, com argumentos sanitizados, artefatos, SHA-256 e exit
+code.
 
-Config em camadas: flags → env (`TARRAFA_TIMEOUT`, …) → `./tarrafa.toml` → `~/.tarrafa/config.toml`.
+Configuração em camadas: flags → env (`TARRAFA_TIMEOUT`, …) →
+`./tarrafa.toml` → `~/.tarrafa/config.toml`.
 
-### O que cada um precisa configurar
+### O que precisa ser configurado
 
-| Recurso | Quem fornece |
-|---------|----------------|
-| Python 3.10+, deps, Chromium | Máquina de quem usa (`pip` + `playwright install`) |
-| Sessão Instagram (`storage_state.json`) | **Login nativo de cada usuário** (nunca compartilhe o arquivo) |
-| `DATAJUD_API_KEY` | Opcional (cota); se usar, no `.env` local |
-| Token Playwright MCP | Opcional (Chrome real / extensão) |
+| Recurso | Responsável |
+|---------|-------------|
+| Python 3.10+, dependências e Chromium | Computador de quem usa |
+| Sessão Instagram (`storage_state.json`) | Login nativo de cada usuário; nunca compartilhe o arquivo |
+| `DATAJUD_API_KEY` | Opcional; se usada, deve ficar no `.env` local |
+| Token Playwright MCP | Opcional, para Chrome real/extensão |
 
-**Não** digite senha no CLI. **Não** automatize Facebook OIDC. Saídas vão só para o path que você passar.
+**Não** digite senha no CLI. **Não** automatize Facebook OIDC. Os arquivos são
+gravados no caminho informado pelo usuário.
 
 ---
 
-## Tools
+## Ferramentas
 
 | Comando | Função |
 |---------|--------|
