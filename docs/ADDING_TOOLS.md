@@ -11,7 +11,8 @@
 3. Register in `src/tarrafa/cli.py` (`TOOLS` + dispatch map).
 4. Document flags in `README.md` and `AGENTS.md`.
 5. Add a smoke test under `tests/`.
-6. Keep case-specific classifiers **out** of this repo. Print-ready HTML via `album` / `dossier` is OK (render only; no OSINT narrative).
+6. Keep case-specific classifiers **out** of this repo. Print-ready HTML via `album` / `dossier` / `order-risk` is OK (render only; no OSINT narrative; sem dados de caso real embutidos no código).
+7. HTML com prints: **sempre embutir** imagens via `file_to_data_uri` (data URI), não depender de path relativo.
 
 ## Optional extras
 

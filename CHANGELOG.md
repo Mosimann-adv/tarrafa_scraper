@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- **`tarrafa order-risk`** — triagem de risco de chargeback em pedido e-commerce:
+  CPF/CEP/telefone, DJEN+Datajud por CPF, loja (page + CNPJ + RDAP), opcional Maps/IG;
+  envelope JSON + HTML print-ready com **imagens embutidas (data URI)**.
 - **`tarrafa stj`** — download de inteiro teor do STJ/SCON (PDF) com sessão browser:
   `--warmup --headed --save-storage`, `--storage-state`, `--cdp`, lote via `--urls-file`,
   opcional `--extract` (pdf-extract). Exit **5** em desafio Cloudflare/CSID.

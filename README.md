@@ -117,6 +117,7 @@ Config em camadas: flags → env (`TARRAFA_TIMEOUT`, …) → `./tarrafa.toml` �
 | `tarrafa datajud` | Capa/movimentos Datajud por CNJ |
 | `tarrafa stj` | Inteiro teor STJ/SCON (PDF; sessão headed/CDP se Cloudflare) |
 | `tarrafa pdf-extract` | Texto + identity hints de PDFs |
+| `tarrafa order-risk` | Triagem chargeback e-commerce (JSON + HTML com imagens embutidas) |
 | `tarrafa doctor` | Checa deps, Chromium, ffmpeg, yt-dlp, session e env |
 | `tarrafa list` / `version` | Lista tools / versão |
 

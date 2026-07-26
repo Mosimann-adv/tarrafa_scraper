@@ -40,6 +40,7 @@ Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or cas
 | Datajud capa/movimentos (CNJ) — após DJEN / CNJs conhecidos | `tarrafa datajud` |
 | Inteiro teor STJ (SCON PDF; Cloudflare) | `tarrafa stj` |
 | Texto + identity hints de PDFs (autos) | `tarrafa pdf-extract` |
+| Triagem chargeback pedido e-commerce (JSON + HTML embutido) | `tarrafa order-risk` |
 | Checar ambiente | `tarrafa doctor` |
 
 ## Paths
@@ -92,6 +93,15 @@ tarrafa djen --papel parte --texto "handle" --follow-datajud \
   --datajud-out "OUT_DIR/datajud.json" --out "OUT_DIR/djen.json"
 tarrafa datajud --cnj "0000000-00.0000.0.00.0000" --out "OUT_DIR/datajud.json"
 tarrafa pdf-extract --dir "OUT_DIR/pdfs" --recursive --out "OUT_DIR/pdf_extract.json"
+
+# Triagem chargeback (comprador + loja) — HTML com imagens em data URI
+tarrafa order-risk \
+  --store-url "https://loja.example" \
+  --name "Nome Comprador" --cpf "000.000.000-00" \
+  --cep "00000-000" --city "Cidade" --state UF \
+  --street "Rua Exemplo" --number "100" \
+  --phone "(00) 90000-0000" --email "user@example.com" \
+  --out-dir "OUT_DIR" --html --shot-maps
 
 tarrafa video --url "URL" --out-dir "OUT_DIR" --id VID01 --frames 5
 # optional download: --download  (yt-dlp)

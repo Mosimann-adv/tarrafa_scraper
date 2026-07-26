@@ -27,6 +27,10 @@ TOOLS = [
     ("datajud", "Capa/movimentos Datajud (API pública CNJ) por CNJ -> envelope"),
     ("stj", "STJ SCON inteiro teor (PDF) — Cloudflare-aware (warmup/headed/CDP)"),
     ("pdf-extract", "Texto + identity hints (CPF/CNJ/endereço/…) de PDFs judiciais"),
+    (
+        "order-risk",
+        "Triagem chargeback e-commerce (CPF/CEP/DJEN/loja) → JSON + HTML com imagens embutidas",
+    ),
     ("doctor", "Check Python deps, Chromium, ffmpeg, yt-dlp, storage_state, MCP token"),
     ("list", "List tools"),
     ("version", "Print version"),
@@ -257,6 +261,8 @@ def main(argv: list[str] | None = None) -> int:
             "stj": "tarrafa.tools.stj.scraper",
             "pdf-extract": "tarrafa.tools.pdf_extract.scraper",
             "pdf_extract": "tarrafa.tools.pdf_extract.scraper",
+            "order-risk": "tarrafa.tools.order_risk.scraper",
+            "order_risk": "tarrafa.tools.order_risk.scraper",
         }
         if tool not in dispatch:
             print(f"Unknown tool: {tool!r}. Try: tarrafa list", file=sys.stderr)
