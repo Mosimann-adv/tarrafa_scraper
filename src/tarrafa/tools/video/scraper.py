@@ -208,7 +208,7 @@ def capture_video(
             width=1280,
             height=900,
             device_scale_factor=2.0,
-        ) as (_p, _b, page):
+        ) as (_p, _b, _ctx, page):
             page.set_default_timeout(int(timeout * 1000))
             resp = goto_settled(page, url, timeout_ms=int(timeout * 1000), wait_ms=wait_ms)
             final_url = page.url

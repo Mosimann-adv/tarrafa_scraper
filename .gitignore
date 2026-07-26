@@ -30,3 +30,6 @@ perfil/
 *_perfil.html
 ANEXO_*.pdf
 PERFIL_*.html
+
+# STJ SCON session cookies (never commit)
+stj_storage.json

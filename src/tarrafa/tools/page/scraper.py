@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from tarrafa.core.challenge import is_challenge_page
 from tarrafa.core.envelope import build_envelope
 from tarrafa.core.extract import extract_article, facts_missing_from_text
 from tarrafa.core.http import fetch_url
@@ -350,6 +351,20 @@ def capture_page(
     if visible_text is not None and include_html:
         item["visible_text"] = visible_text
 
+    challenged = is_challenge_page(
+        title=str(item.get("title") or ""),
+        html=raw_html,
+        text=str(item.get("text") or ""),
+        status=status if isinstance(status, int) else None,
+    )
+    if challenged:
+        item["challenge"] = True
+        errors = list(errors or [])
+        errors.append(
+            "waf_challenge: página parece Cloudflare/CSID (não é o conteúdo alvo). "
+            "Para STJ use: tarrafa stj --warmup --headed --save-storage …"
+        )
+
     facts = item.get("structured_facts") or []
     notes = [
         "Material-only capture (title/text/links + structured facts). No classification.",
@@ -368,6 +383,7 @@ def capture_page(
             "browser_reason": browser_reasons,
             "browser_decision": browser_decision,
             "status": status,
+            "challenge": challenged,
             "text_len": item.get("text_len"),
             "text_main_len": item.get("text_main_len"),
             "links_count": item.get("links_count"),

@@ -38,6 +38,7 @@ Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or cas
 | CNPJ (API open CNPJá) — todo perfil | `tarrafa cnpj` |
 | DJEN comunicações — advogado (`--oab`) ou parte (`--papel parte --texto`) | `tarrafa djen` |
 | Datajud capa/movimentos (CNJ) — após DJEN / CNJs conhecidos | `tarrafa datajud` |
+| Inteiro teor STJ (SCON PDF; Cloudflare) | `tarrafa stj` |
 | Texto + identity hints de PDFs (autos) | `tarrafa pdf-extract` |
 | Checar ambiente | `tarrafa doctor` |
 
@@ -67,6 +68,13 @@ tarrafa doctor
 tarrafa page --url "URL" --out "OUT.json"
 tarrafa shot --url "URL" --out-dir "OUT_DIR" --id SHOT01 --full-page --dpr 2
 tarrafa album --dir "OUT_DIR" --out "OUT_DIR/album.html" --title "…" --kicker "Inventário visual"
+
+# STJ inteiro teor (SCON) — Cloudflare/CSID: aquecer sessão com headed
+tarrafa stj --warmup --headed --save-storage ./stj_storage.json
+tarrafa stj --num-registro 201600461292 --dt-publicacao 23/08/2019 \
+  --storage-state ./stj_storage.json --out-dir ./stj_pdfs --out ./stj.json --extract
+# ou Chrome real: chrome --remote-debugging-port=9222
+tarrafa stj --cdp http://127.0.0.1:9222 --urls-file seeds.txt --out-dir ./stj_pdfs --out stj.json
 
 tarrafa dossier \
   --title "Nome" --out "OUT_DIR/perfil.html" \

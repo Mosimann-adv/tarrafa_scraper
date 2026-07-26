@@ -25,6 +25,7 @@ TOOLS = [
     ("cnpj", "Consulta CNPJ (API open CNPJá /office) -> envelope JSON"),
     ("djen", "Comunicações DJEN (ComunicaAPI) — advogado (OAB) ou parte (--papel parte --texto)"),
     ("datajud", "Capa/movimentos Datajud (API pública CNJ) por CNJ -> envelope"),
+    ("stj", "STJ SCON inteiro teor (PDF) — Cloudflare-aware (warmup/headed/CDP)"),
     ("pdf-extract", "Texto + identity hints (CPF/CNJ/endereço/…) de PDFs judiciais"),
     ("doctor", "Check Python deps, Chromium, ffmpeg, yt-dlp, storage_state, MCP token"),
     ("list", "List tools"),
@@ -253,6 +254,7 @@ def main(argv: list[str] | None = None) -> int:
             "cnpj": "tarrafa.tools.cnpj.scraper",
             "djen": "tarrafa.tools.djen.scraper",
             "datajud": "tarrafa.tools.datajud.scraper",
+            "stj": "tarrafa.tools.stj.scraper",
             "pdf-extract": "tarrafa.tools.pdf_extract.scraper",
             "pdf_extract": "tarrafa.tools.pdf_extract.scraper",
         }

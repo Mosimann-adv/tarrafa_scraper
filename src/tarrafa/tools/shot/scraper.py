@@ -330,7 +330,7 @@ def capture_shot(
             width=width,
             height=height,
             device_scale_factor=dpr,
-        ) as (_p, _b, page):
+        ) as (_p, _b, _ctx, page):
             page.set_default_timeout(int(timeout * 1000))
             resp = goto_settled(page, url, timeout_ms=int(timeout * 1000), wait_ms=wait_ms)
             status = resp.status if resp else None

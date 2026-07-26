@@ -2,11 +2,19 @@
 
 ## Unreleased
 
+### Added
+- **`tarrafa stj`** — download de inteiro teor do STJ/SCON (PDF) com sessão browser:
+  `--warmup --headed --save-storage`, `--storage-state`, `--cdp`, lote via `--urls-file`,
+  opcional `--extract` (pdf-extract). Exit **5** em desafio Cloudflare/CSID.
+- **`tarrafa.core.challenge`** — heurística compartilhada para páginas WAF/challenge.
+- `browser_util.chromium_page` — suporte a `accept_downloads`, `cdp_url` e yield do `context`.
+
 ### Changed
 - `site` agora reutiliza um cliente HTTP assíncrono com pool, concorrência conservadora,
   retries transitórios e ordem BFS determinística.
 - `page --mode auto` registra o motivo do fallback para Playwright, limita a uma tentativa
   por URL e preserva a captura HTTP quando o navegador não melhora o resultado.
+- `page` marca `meta.challenge` e registra erro quando a resposta parece Cloudflare/CSID.
 
 ## 0.4.0 — 2026-07-25
 

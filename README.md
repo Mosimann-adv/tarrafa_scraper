@@ -69,6 +69,7 @@ Fluxo típico de um caso:
 | Diário (advogado) | `tarrafa djen --oab 12345 --uf SP --out ./raw/djen.json` |
 | Diário (parte / nome no teor) | `tarrafa djen --papel parte --texto "Nome Completo" --out ./raw/djen.json` |
 | Processo por CNJ | `tarrafa datajud --cnj … --out ./raw/datajud.json` |
+| Inteiro teor STJ (SCON) | `tarrafa stj --warmup --headed --save-storage ./stj.json` depois download com `--storage-state` |
 | Texto de PDFs de autos | `tarrafa pdf-extract --dir ./pdfs --recursive --out ./raw/pdf.json` |
 | Álbum / ficha para impressão | `tarrafa album …` / `tarrafa dossier …` |
 
@@ -114,6 +115,7 @@ Config em camadas: flags → env (`TARRAFA_TIMEOUT`, …) → `./tarrafa.toml` �
 | `tarrafa cnpj` | Consulta CNPJ via API open CNPJá (sem API key) |
 | `tarrafa djen` | Comunicações DJEN — advogado (`--oab`) ou parte (`--papel parte --texto`) |
 | `tarrafa datajud` | Capa/movimentos Datajud por CNJ |
+| `tarrafa stj` | Inteiro teor STJ/SCON (PDF; sessão headed/CDP se Cloudflare) |
 | `tarrafa pdf-extract` | Texto + identity hints de PDFs |
 | `tarrafa doctor` | Checa deps, Chromium, ffmpeg, yt-dlp, session e env |
 | `tarrafa list` / `version` | Lista tools / versão |
@@ -252,6 +254,14 @@ tarrafa djen --papel parte --texto "Nome Completo" --follow-datajud \
 tarrafa datajud --cnj 0000000-00.0000.0.00.0000 --out ./out/datajud.json
 # opcional: --tribunal trf4 | env DATAJUD_API_KEY
 
+# STJ inteiro teor (SCON) — 1) aquecer sessão  2) baixar
+tarrafa stj --warmup --headed --save-storage ./stj_storage.json
+tarrafa stj --num-registro 201600461292 --dt-publicacao 23/08/2019 \
+  --storage-state ./stj_storage.json --out-dir ./out/stj_pdfs --out ./out/stj.json --extract
+# lote: linhas "num|dd/mm/aaaa" ou URL GetInteiroTeor
+tarrafa stj --urls-file ./seeds_stj.txt --storage-state ./stj_storage.json \
+  --out-dir ./out/stj_pdfs --out ./out/stj.json
+
 tarrafa pdf-extract --dir ./out/pdfs --recursive --out ./out/pdf_extract.json
 ```
 
@@ -259,6 +269,7 @@ tarrafa pdf-extract --dir ./out/pdfs --recursive --out ./out/pdf_extract.json
 - **djen advogado:** amostra + pós-filtro OAB.
 - **djen parte:** `--texto` no teor; `identity_hints` no summary; não fundir homônimos só por nome curto.
 - **datajud:** índice típico **sem** partes — use CNJs já conhecidos.
+- **stj:** SCON costuma exigir desafio Cloudflare; não contorna captcha — use `--warmup --headed` ou `--cdp`. Exit **5** = challenge.
 - **pdf-extract:** texto embutido (pypdf); PDF só-imagem precisa OCR externo.
 - **Perfil de pessoa (orquestração):** `docs/PROFILE_PIPELINE.md` — djen parte, autos, IG shots, homônimo/CPF, V1 HTML vs anexo judicial.
 
