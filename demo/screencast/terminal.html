@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Terminal — tarrafa</title>
+  <style>
+    :root {
+      --term-bg: #000000;
+      --term-fg: #e8e8e8;
+      --term-dim: #8a8a8a;
+      --term-green: #32d74b;
+      --term-yellow: #ffd60a;
+      --term-cyan: #64d2ff;
+      --term-red: #ff453a;
+      --bar-bg: rgba(30, 30, 30, 0.92);
+      --font: "SF Mono", "Menlo", "Monaco", "Cascadia Mono", "Consolas", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: var(--term-fg);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* macOS menu bar (visible, like a normal desktop capture) */
+    #menubar {
+      height: 25px;
+      background: var(--bar-bg);
+      backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      color: #f5f5f7;
+      user-select: none;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    #menubar .left { display: flex; gap: 18px; align-items: center; }
+    #menubar .left strong { font-weight: 600; }
+    #menubar .left span { opacity: 0.92; }
+    #menubar .right { display: flex; gap: 14px; align-items: center; opacity: 0.9; font-variant-numeric: tabular-nums; }
+    #menubar .apple {
+      width: 14px; height: 14px;
+      background: currentColor;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.3 8.3c0-1.7 1.4-2.5 1.4-2.5s-1.1-1.6-2.8-1.6c-1.2 0-1.7.6-2.6.6-.9 0-1.6-.6-2.6-.6C3.7 4.2 2 5.6 2 8.1c0 2.5 1.8 5.5 3.4 5.5.8 0 1.1-.5 2.1-.5 1 0 1.2.5 2.1.5 1.6 0 2.8-2.4 2.8-2.4s-1.7-.7-1.7-2.9zM10.5 3.4c.7-.8 1.2-2 1.1-3.1-1 .1-2.2.7-2.9 1.5-.6.7-1.2 1.9-1.1 3 1.1.1 2.2-.6 2.9-1.4z'/%3E%3C/svg%3E") center/contain no-repeat;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.3 8.3c0-1.7 1.4-2.5 1.4-2.5s-1.1-1.6-2.8-1.6c-1.2 0-1.7.6-2.6.6-.9 0-1.6-.6-2.6-.6C3.7 4.2 2 5.6 2 8.1c0 2.5 1.8 5.5 3.4 5.5.8 0 1.1-.5 2.1-.5 1 0 1.2.5 2.1.5 1.6 0 2.8-2.4 2.8-2.4s-1.7-.7-1.7-2.9zM10.5 3.4c.7-.8 1.2-2 1.1-3.1-1 .1-2.2.7-2.9 1.5-.6.7-1.2 1.9-1.1 3 1.1.1 2.2-.6 2.9-1.4z'/%3E%3C/svg%3E") center/contain no-repeat;
+    }
+
+    #stage {
+      position: relative;
+      height: calc(100% - 25px);
+      width: 100%;
+      background: #000;
+    }
+
+    /* Terminal scene */
+    #terminal-scene {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--term-bg);
+      opacity: 1;
+      transition: opacity 0.35s ease;
+    }
+    #terminal-scene.hidden { opacity: 0; pointer-events: none; }
+
+    #term-titlebar {
+      height: 38px;
+      background: #1c1c1e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-bottom: 1px solid #2c2c2e;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      color: #d1d1d6;
+      user-select: none;
+    }
+    #term-titlebar .traffic {
+      position: absolute;
+      left: 14px;
+      display: flex;
+      gap: 8px;
+    }
+    #term-titlebar .traffic i {
+      width: 12px; height: 12px; border-radius: 50%; display: block;
+    }
+    #term-titlebar .traffic .r { background: #ff5f57; }
+    #term-titlebar .traffic .y { background: #febc2e; }
+    #term-titlebar .traffic .g { background: #28c840; }
+    #term-titlebar .title { opacity: 0.95; }
+
+    #screen {
+      flex: 1;
+      overflow: hidden;
+      padding: 10px 14px 16px;
+      font-size: 13.5px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #out { display: block; }
+    .line { display: block; min-height: 1.45em; }
+    .prompt-user { color: var(--term-green); }
+    .prompt-host { color: var(--term-green); }
+    .prompt-path { color: var(--term-cyan); }
+    .prompt-sym { color: var(--term-fg); }
+    .ok { color: var(--term-green); }
+    .dim { color: var(--term-dim); }
+    .warn { color: var(--term-yellow); }
+    .cmd { color: var(--term-fg); }
+    #cursor {
+      display: inline-block;
+      width: 0.6ch;
+      height: 1.15em;
+      background: #cccccc;
+      vertical-align: text-bottom;
+      margin-left: 1px;
+      animation: blink 1.05s step-end infinite;
+    }
+    #cursor.off { visibility: hidden; animation: none; }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    /* Safari-like browser for dossier */
+    #browser-scene {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: #f5f5f7;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    #browser-scene.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #browser-chrome {
+      background: #e8e8ed;
+      border-bottom: 1px solid #c7c7cc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      user-select: none;
+    }
+    #browser-toolbar {
+      height: 52px;
+      display: grid;
+      grid-template-columns: 90px 1fr 90px;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+    }
+    #browser-toolbar .traffic {
+      display: flex; gap: 8px; padding-left: 4px;
+    }
+    #browser-toolbar .traffic i {
+      width: 12px; height: 12px; border-radius: 50%;
+    }
+    #browser-toolbar .traffic .r { background: #ff5f57; }
+    #browser-toolbar .traffic .y { background: #febc2e; }
+    #browser-toolbar .traffic .g { background: #28c840; }
+    #urlbar {
+      height: 30px;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #d1d1d6;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+      color: #1d1d1f;
+      font-size: 12.5px;
+      box-shadow: 0 0.5px 0 rgba(0,0,0,0.04);
+    }
+    #urlbar .lock {
+      width: 10px; height: 12px; opacity: 0.55;
+      background: #1d1d1f;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 14'%3E%3Cpath d='M6 0a3.5 3.5 0 013.5 3.5V5H10a2 2 0 012 2v5a2 2 0 01-2 2H2a2 2 0 01-2-2V7a2 2 0 012-2h.5V3.5A3.5 3.5 0 016 0zm0 1.5A2 2 0 004 3.5V5h4V3.5A2 2 0 006 1.5z'/%3E%3C/svg%3E") center/contain no-repeat;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 14'%3E%3Cpath d='M6 0a3.5 3.5 0 013.5 3.5V5H10a2 2 0 012 2v5a2 2 0 01-2 2H2a2 2 0 01-2-2V7a2 2 0 012-2h.5V3.5A3.5 3.5 0 016 0zm0 1.5A2 2 0 004 3.5V5h4V3.5A2 2 0 006 1.5z'/%3E%3C/svg%3E") center/contain no-repeat;
+    }
+    #urlbar .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #browser-tabs {
+      height: 36px;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 10px;
+      gap: 2px;
+    }
+    #browser-tabs .tab {
+      background: #fff;
+      border: 1px solid #c7c7cc;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      padding: 7px 16px;
+      font-size: 12px;
+      color: #1d1d1f;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #dossier-frame {
+      flex: 1;
+      width: 100%;
+      border: 0;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div id="menubar">
+    <div class="left">
+      <i class="apple" aria-hidden="true"></i>
+      <strong>Terminal</strong>
+      <span>Shell</span>
+      <span>Edit</span>
+      <span>View</span>
+      <span>Window</span>
+      <span>Help</span>
+    </div>
+    <div class="right">
+      <span id="clock">Fri 18:04</span>
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="terminal-scene">
+      <div id="term-titlebar">
+        <div class="traffic" aria-hidden="true"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+        <div class="title">tarrafa — zsh — 120×36</div>
+      </div>
+      <div id="screen"><span id="out"></span><span id="cursor"></span></div>
+    </div>
+
+    <div id="browser-scene">
+      <div id="browser-chrome">
+        <div id="browser-tabs">
+          <div class="tab">Example Domain — perfil</div>
+        </div>
+        <div id="browser-toolbar">
+          <div class="traffic" aria-hidden="true"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+          <div id="urlbar">
+            <i class="lock" aria-hidden="true"></i>
+            <span class="path" id="url-path">file:///Users/demo/caso-demo/html/perfil.html</span>
+          </div>
+          <div></div>
+        </div>
+      </div>
+      <iframe id="dossier-frame" title="Dossier" src="case/html/perfil.html"></iframe>
+    </div>
+  </div>
+
+  <script>
+    window.__DEMO_DONE__ = false;
+    window.__DEMO_PHASE__ = "boot";
+
+    const out = document.getElementById("out");
+    const cursor = document.getElementById("cursor");
+    const screen = document.getElementById("screen");
+    const terminalScene = document.getElementById("terminal-scene");
+    const browserScene = document.getElementById("browser-scene");
+    const menubarApp = document.querySelector("#menubar .left strong");
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    function scrollBottom() {
+      screen.scrollTop = screen.scrollHeight;
+    }
+
+    function appendHTML(html) {
+      out.insertAdjacentHTML("beforeend", html);
+      scrollBottom();
+    }
+
+    function promptHTML(cwd = "~/caso-demo") {
+      return (
+        `<span class="prompt-user">demo</span>` +
+        `<span class="dim">@</span>` +
+        `<span class="prompt-host">MacBook-Pro</span> ` +
+        `<span class="prompt-path">${cwd}</span> ` +
+        `<span class="prompt-sym">%</span> `
+      );
+    }
+
+    async function typeText(text, { wpm = 140 } = {}) {
+      const cpm = wpm * 5;
+      const base = 60000 / cpm;
+      for (const ch of text) {
+        appendHTML(`<span class="cmd">${escapeHtml(ch)}</span>`);
+        let delay = base * (0.5 + Math.random() * 0.75);
+        if (ch === " ") delay *= 1.15;
+        await sleep(delay);
+      }
+    }
+
+    function escapeHtml(s) {
+      return s
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    async function printLines(lines, { lineDelay = 90 } = {}) {
+      for (const line of lines) {
+        appendHTML(`<span class="line">${line}</span>\n`);
+        await sleep(lineDelay);
+      }
+    }
+
+    /** Target total runtime ~15–20s: one slash prompt → short progress → HTML. */
+    async function session() {
+      const clock = document.getElementById("clock");
+      const now = new Date();
+      clock.textContent = now.toLocaleString("en-US", {
+        weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+      }).replace(",", "");
+
+      // ~0.5s settle
+      await sleep(500);
+
+      window.__DEMO_PHASE__ = "prompt";
+      appendHTML(promptHTML("~"));
+      await sleep(280);
+
+      // One human request — not the multi-tool CLI tour
+      const cmd = "/tarrafa criar html com informações sobre example.com";
+      await typeText(cmd, { wpm: 150 });
+      await sleep(100);
+      appendHTML("\n");
+      cursor.classList.add("off");
+
+      window.__DEMO_PHASE__ = "run";
+      await sleep(350);
+      await printLines([
+        `<span class="dim">tarrafa</span> · coletando fontes abertas…`,
+      ], { lineDelay: 120 });
+      await sleep(450);
+      await printLines([
+        `  page     <span class="ok">ok</span>  example.com`,
+        `  shot     <span class="ok">ok</span>  DOC01.png`,
+        `  dossier  <span class="ok">ok</span>  html/perfil.html`,
+      ], { lineDelay: 220 });
+      await sleep(280);
+      await printLines([
+        `→ abriu <span class="ok">html/perfil.html</span>`,
+      ], { lineDelay: 100 });
+
+      await sleep(400);
+      window.__DEMO_PHASE__ = "browser";
+      const menuLeft = document.querySelector("#menubar .left");
+      menuLeft.innerHTML = `
+        <i class="apple" aria-hidden="true"></i>
+        <strong>Safari</strong>
+        <span>File</span><span>Edit</span><span>View</span>
+        <span>History</span><span>Bookmarks</span><span>Window</span><span>Help</span>`;
+      terminalScene.classList.add("hidden");
+      browserScene.classList.add("visible");
+
+      // Hold on the HTML (~8–9s) so total lands ~16–18s
+      await sleep(700);
+      try {
+        const frame = document.getElementById("dossier-frame");
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        const max = Math.max(0, doc.documentElement.scrollHeight - frame.clientHeight);
+        const steps = 28;
+        for (let i = 1; i <= steps; i++) {
+          frame.contentWindow.scrollTo(0, Math.round(max * 0.6 * (i / steps)));
+          await sleep(60);
+        }
+        await sleep(3800);
+      } catch (e) {
+        await sleep(5500);
+      }
+
+      await sleep(900);
+      window.__DEMO_PHASE__ = "done";
+      window.__DEMO_DONE__ = true;
+    }
+
+    session().catch((err) => {
+      console.error(err);
+      window.__DEMO_ERROR__ = String(err);
+      window.__DEMO_DONE__ = true;
+    });
+  </script>
+</body>
+</html>

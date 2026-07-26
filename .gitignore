@@ -17,6 +17,10 @@ ig_scrape_stats*.json
 .coverage
 htmlcov/
 
+# Artefatos gerados pela demonstração
+/demo/screencast/case/
+/demo/screencast/out/
+
 # Case / work product (never commit)
 casos/
 cases/
