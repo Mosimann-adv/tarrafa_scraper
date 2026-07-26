@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from tarrafa.cli import main as cli_main
