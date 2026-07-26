@@ -144,6 +144,7 @@ def match_address_fields(
 
     def _norm(s: str | None) -> str:
         s = (s or "").casefold()
+        s = re.sub(r"[^\w\s]", " ", s)
         s = re.sub(r"\s+", " ", s).strip()
         for a, b in (
             ("á", "a"),
@@ -162,6 +163,32 @@ def match_address_fields(
             s = s.replace(a, b)
         return s
 
+    def _street_parts(s: str | None) -> tuple[str | None, set[str]]:
+        normalized = _norm(s)
+        aliases = {
+            "r": "rua",
+            "av": "avenida",
+            "rod": "rodovia",
+            "estr": "estrada",
+            "al": "alameda",
+            "tv": "travessa",
+            "pca": "praca",
+        }
+        kinds = {
+            "rua",
+            "avenida",
+            "rodovia",
+            "estrada",
+            "alameda",
+            "travessa",
+            "praca",
+        }
+        stop = {"da", "das", "de", "do", "dos", "e"}
+        tokens = [aliases.get(t, t) for t in normalized.split()]
+        kind = next((t for t in tokens if t in kinds), None)
+        core = {t for t in tokens if t not in kinds and t not in stop and len(t) > 1}
+        return kind, core
+
     pairs = [
         ("street", street, via.get("logradouro") or via.get("street")),
         ("neighborhood", neighborhood, via.get("bairro") or via.get("neighborhood")),
@@ -176,9 +203,17 @@ def match_address_fields(
             checks.append({"field": key, "match": None, "given": given, "expected": expected, "reason": "missing_api"})
             continue
         g, e = _norm(str(given)), _norm(str(expected))
-        # street: partial contains either way
         if key == "street":
-            ok = g in e or e in g or any(t in e for t in g.split() if len(t) > 3)
+            given_kind, given_core = _street_parts(str(given))
+            expected_kind, expected_core = _street_parts(str(expected))
+            kind_ok = not given_kind or not expected_kind or given_kind == expected_kind
+            overlap = given_core & expected_core
+            core_ok = bool(given_core and expected_core) and (
+                given_core <= expected_core
+                or expected_core <= given_core
+                or len(overlap) / max(len(given_core), len(expected_core)) >= 0.75
+            )
+            ok = kind_ok and core_ok
         elif key == "state":
             ok = g[:2] == e[:2]
         else:
@@ -272,18 +307,22 @@ def compute_bands(signals: list[dict[str, Any]]) -> dict[str, Any]:
             )
         )
         neg = sum(1 for s in signals if s["polarity"] == "negative" and s["weight"] in ("critical", "normal"))
-        if by_id.get("cpf_valid", {}).get("polarity") == "positive" and pos_crit >= 3 and neg == 0:
+        djen_anchored = by_id.get("djen_cpf_anchor", {}).get("polarity") == "positive"
+        if (
+            by_id.get("cpf_valid", {}).get("polarity") == "positive"
+            and djen_anchored
+            and pos_crit >= 3
+            and neg == 0
+        ):
             identity = "low"
         elif neg >= 2 or by_id.get("cep_match", {}).get("polarity") == "negative":
             identity = "high" if by_id.get("cep_match", {}).get("weight") == "critical" else "mid"
-        elif pos_crit >= 2:
-            identity = "low"
 
     merchant = "unknown"
-    if by_id.get("store_cnpj_active", {}).get("polarity") == "positive":
-        merchant = "low"
-    elif by_id.get("store_reachable", {}).get("polarity") == "negative":
+    if by_id.get("store_cnpj_inactive", {}).get("polarity") == "negative":
         merchant = "high"
+    elif by_id.get("store_cnpj_active", {}).get("polarity") == "positive":
+        merchant = "low"
     elif by_id.get("store_reachable", {}).get("polarity") == "positive":
         merchant = "mid"
 
@@ -293,6 +332,8 @@ def compute_bands(signals: list[dict[str, Any]]) -> dict[str, Any]:
         "friendly_fraud_residual": "low_mid",
         "rule_notes": [
             "Bandas derivadas de checks materiais (CPF, CEP, DJEN, loja) — não é score ML.",
+            "Identidade baixa exige âncora DJEN no mesmo CPF e ao menos dois checks adicionais.",
+            "Falha de captura da loja permanece unknown; não é evidência de risco do merchant.",
             "Friendly fraud residual sempre existe em cartão sem histórico de gateway.",
         ],
     }
@@ -549,8 +590,8 @@ def build_signals_from_facts(facts: dict[str, Any]) -> list[dict[str, Any]]:
         out.append(
             signal(
                 id="store_reachable",
-                label="Loja não capturada",
-                polarity="negative",
+                label="Captura da loja inconclusiva",
+                polarity="gap",
                 detail=store.get("error") or store.get("url") or "",
                 weight="normal",
             )
@@ -579,6 +620,21 @@ def build_signals_from_facts(facts: dict[str, Any]) -> list[dict[str, Any]]:
                 polarity="gap",
                 detail=str(store.get("cnpjs_found")),
                 weight="normal",
+            )
+        )
+
+    if store.get("cnpj_inactive"):
+        out.append(
+            signal(
+                id="store_cnpj_inactive",
+                label="CNPJ da loja verificado como não ativo",
+                polarity="negative",
+                detail=f"{store.get('company_name')} · {store.get('cnpj_formatted')} · {store.get('cnpj_status')}",
+                weight="critical",
+                evidence={
+                    "cnpj": store.get("cnpj"),
+                    "status": store.get("cnpj_status"),
+                },
             )
         )
 

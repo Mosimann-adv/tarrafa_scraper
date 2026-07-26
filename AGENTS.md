@@ -148,6 +148,7 @@ tarrafa ig --url "POST_URL" --out "OUT.json" \
 | Code | Meaning |
 |------|---------|
 | 0 | OK |
+| 1 | Execução parcial: artefatos gravados, mas uma ou mais coletas falharam |
 | 2 | Bad args / missing dep / unknown tool |
 | 3–5 | IG-specific (nav / auth / login wall) |
 | 6 | Zero items |

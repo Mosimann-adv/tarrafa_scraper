@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+- **`tarrafa order-risk`** — endurece as bandas e a sinalização de execução parcial:
+  timeout de coleta não vira risco alto, identidade baixa exige âncora DJEN no CPF,
+  logradouro usa comparação mais estrita e falhas retornam exit code `1`.
+
 ### Added
 - **`tarrafa order-risk`** — triagem de risco de chargeback em pedido e-commerce:
   CPF/CEP/telefone, DJEN+Datajud por CPF, loja (page + CNPJ + RDAP), opcional Maps/IG;

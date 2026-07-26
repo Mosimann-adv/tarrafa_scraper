@@ -248,7 +248,6 @@ def _run_djen_cpf(cpf: str, *, max_items: int, timeout: float, raw_dir: Path) ->
 
     # civil name heuristic from texto_plain when CPF appears
     name_hint = None
-    cpf_re = re.compile(re.escape(formatted).replace(r"\-", r"[-.]?").replace(r"\.", r"\.?"), re.I)
     # simpler: look for "NOME CPF: xxx" patterns
     for it in items:
         plain = it.get("texto_plain") or ""
@@ -442,10 +441,12 @@ def run_order_risk(
     store_block: dict[str, Any] = {"url": store_url}
     if store_url and not skip_store:
         page = _capture_store_page(store_url, timeout=timeout, out_json=raw_dir / "store_home.json")
-        store_block["reachable"] = bool(page.get("ok"))
+        store_block["reachable"] = True if page.get("ok") else None
         store_block["title"] = page.get("title")
         store_block["url"] = page.get("url") or store_url
         store_block["error"] = page.get("error")
+        if not page.get("ok"):
+            errors.append(f"store: {page.get('error') or 'captura inconclusiva'}")
         if page.get("envelope_path"):
             artifacts.append(page["envelope_path"])
         text = page.get("text") or ""
@@ -486,6 +487,8 @@ def run_order_risk(
                 if isinstance(sum_status, dict):
                     sum_status = sum_status.get("text")
             status_txt = status or sum_status or ""
+            if not cnpj_res.get("ok"):
+                errors.append(f"cnpj: {cnpj_res.get('error') or 'consulta inconclusiva'}")
             store_block["cnpj"] = cnpj_res.get("cnpj")
             store_block["cnpj_formatted"] = cnpj_res.get("cnpj_formatted")
             store_block["company_name"] = cnpj_res.get("company_name")
@@ -493,8 +496,14 @@ def run_order_risk(
             store_block["cnpj_status"] = status_txt
             store_block["founded"] = cnpj_res.get("founded")
             store_block["address"] = cnpj_res.get("address")
-            store_block["cnpj_active"] = bool(cnpj_res.get("ok")) and (
-                not status_txt or "ativa" in str(status_txt).casefold()
+            status_cf = str(status_txt).strip().casefold()
+            status_is_active = status_cf == "ativa" or status_cf.startswith("ativa ")
+            store_block["cnpj_verified"] = bool(cnpj_res.get("ok"))
+            store_block["cnpj_active"] = bool(cnpj_res.get("ok")) and status_is_active
+            store_block["cnpj_inactive"] = (
+                bool(cnpj_res.get("ok"))
+                and bool(status_cf)
+                and not status_is_active
             )
 
         dom = domain_from_url(store_url)
@@ -507,6 +516,8 @@ def run_order_risk(
             store_block["domain_created"] = rdap.get("created")
             store_block["domain_expires"] = rdap.get("expires")
             store_block["rdap_events"] = rdap.get("events")
+            if not rdap.get("ok"):
+                errors.append(f"rdap: {rdap.get('error') or 'consulta inconclusiva'}")
 
         if shot_store:
             sh = _safe_shot(
@@ -525,6 +536,8 @@ def run_order_risk(
                         "path": sh["path"],
                     }
                 )
+            else:
+                errors.append(f"shot-store: {sh.get('error') or 'captura inconclusiva'}")
     elif not store_url:
         notes.append("Loja não informada (--store-url); checks de merchant ficam unknown.")
     else:
@@ -567,6 +580,8 @@ def run_order_risk(
                     "path": sh["path"],
                 }
             )
+        else:
+            errors.append(f"shot-maps: {sh.get('error') or 'captura inconclusiva'}")
         # satellite attempt
         if buyer.get("cep") and cep_block.get("via"):
             # no guaranteed lat in ViaCEP; optional second shot of place is enough
@@ -586,6 +601,12 @@ def run_order_risk(
                 artifacts.append(djen_block["path"])
             if djen_block.get("datajud", {}).get("path"):
                 artifacts.append(djen_block["datajud"]["path"])
+            if djen_block.get("error"):
+                errors.append(f"djen: {djen_block['error']}")
+            for error in djen_block.get("errors") or []:
+                errors.append(f"djen: {error}")
+            if djen_block.get("datajud_error"):
+                errors.append(f"datajud: {djen_block['datajud_error']}")
         except Exception as e:
             djen_block = {"queried": False, "error": f"{type(e).__name__}: {e}"}
             errors.append(f"djen: {e}")
@@ -607,6 +628,8 @@ def run_order_risk(
         )
         if ig_block.get("path"):
             artifacts.append(ig_block["path"])
+        if ig_block.get("error"):
+            errors.append(f"ig: {ig_block['error']}")
         sh = ig_block.get("shot") or {}
         if sh.get("ok") and sh.get("path"):
             shot_records.append(
@@ -616,6 +639,8 @@ def run_order_risk(
                     "path": sh["path"],
                 }
             )
+        elif sh.get("error"):
+            errors.append(f"shot-ig: {sh['error']}")
 
     facts = {
         "buyer": buyer,
@@ -870,7 +895,7 @@ def main(argv: list[str] | None = None) -> int:
     if env.get("errors"):
         for er in env["errors"][:8]:
             print(f"  ! {er}", file=sys.stderr)
-    return 0
+    return 1 if env.get("errors") else 0
 
 
 if __name__ == "__main__":
