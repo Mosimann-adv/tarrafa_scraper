@@ -39,6 +39,10 @@ python -m twine check dist/*
 
 ## Alterações
 
+- Use português do Brasil (pt-BR) na comunicação, documentação, mensagens visíveis da
+  CLI, issues, pull requests e mensagens de commit.
+- Mantenha identificadores de código, APIs, flags e termos técnicos consolidados em
+  inglês quando necessário para compatibilidade ou clareza.
 - Mantenha commits pequenos e descritivos.
 - Inclua teste para correções e comportamento novo.
 - Atualize README/CHANGELOG quando a interface pública mudar.

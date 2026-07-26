@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- `site` agora reutiliza um cliente HTTP assíncrono com pool, concorrência conservadora,
+  retries transitórios e ordem BFS determinística.
+- `page --mode auto` registra o motivo do fallback para Playwright, limita a uma tentativa
+  por URL e preserva a captura HTTP quando o navegador não melhora o resultado.
+
 ## 0.4.0 — 2026-07-25
 
 Platform foundation (agnostic of any single use case).

@@ -16,7 +16,7 @@ TOOLS = [
     ("init", "Create optional workspace (tarrafa.toml + raw/shots/html/logs/meta)"),
     ("ig", "Instagram post/reel comments -> forensic JSON (permalinks /c/)"),
     ("page", "Single public page capture (HTTP / browser + structured facts)"),
-    ("site", "Controlled same-host BFS crawl -> multi-page envelope"),
+    ("site", "Concurrent same-host crawl -> multi-page envelope"),
     ("feed", "RSS/Atom feed inventory (optional entry fetch)"),
     ("shot", "High-quality page screenshot -> PNG + JSON"),
     ("video", "Video meta + frames (+ optional yt-dlp download)"),

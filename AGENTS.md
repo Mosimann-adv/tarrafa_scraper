@@ -4,6 +4,15 @@ Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or cas
 
 **License:** PolyForm Noncommercial 1.0.0 (`LICENSE`) — attribution required; no commercial use without separate permission.
 
+## Idioma do projeto
+
+- Adote **português do Brasil (pt-BR)** em comunicação, documentação, mensagens da CLI,
+  changelog, issues, pull requests e mensagens de commit.
+- Preserve em inglês identificadores de código, nomes de APIs, flags, formatos e termos
+  técnicos consolidados quando a tradução prejudicar compatibilidade ou clareza.
+- Não traduza retroativamente grandes trechos sem relação com a tarefa; aplique a regra
+  a conteúdo novo ou alterado.
+
 ## Platform (v0.4+)
 
 | Pedido | Comando / regra |

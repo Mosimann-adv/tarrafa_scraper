@@ -4,7 +4,7 @@ tarrafa site — controlled same-host BFS crawl.
 
   tarrafa site --url https://example.com --out site.json --max-pages 10 --max-depth 2
 
-Optional Scrapy is NOT required; crawl uses httpx + trafilatura.
+Optional Scrapy is NOT required; crawl uses pooled async httpx + trafilatura.
 Install scrapy later for advanced spiders if needed (optional extra).
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ from tarrafa.core.writers import utc_now_iso, write_json
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="tarrafa site",
-        description="Crawl a site (BFS, same-domain) -> forensic JSON envelope.",
+        description="Crawl a site (concurrent BFS, same-domain) -> forensic JSON envelope.",
     )
     ap.add_argument("--url", required=True, help="Start URL")
     ap.add_argument("--out", required=True, help="Output JSON path")
@@ -64,12 +64,12 @@ def main(argv: list[str] | None = None) -> int:
         items=items,
         meta={
             **result["meta"],
-            "engine": "bfs_httpx",
+            "engine": "bfs_httpx_async",
             "scrapy": "optional_not_used",
         },
         errors=result.get("errors") or [],
         notes=[
-            "Controlled BFS crawl (httpx + trafilatura). Material-only.",
+            "Controlled concurrent BFS crawl (pooled async httpx + trafilatura). Material-only.",
             "Same-domain by default. Use --all-domains with care.",
             "Scrapy is optional (pip install scrapy); this engine does not require it.",
         ],

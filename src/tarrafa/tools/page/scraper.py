@@ -12,6 +12,7 @@ creator name) is not lost when the article body is long enough.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -83,27 +84,121 @@ def _fetch_browser(
         }
 
 
-def _looks_thin(extracted: dict[str, Any], html: str) -> bool:
-    text = extracted.get("text_main") or extracted.get("text") or ""
-    if len(text) >= 200:
-        # Long article can still miss structured chrome — do NOT force browser
-        # solely for that (HTTP already has JSON-LD). Browser is for empty SPA shells.
+_SPA_MARKERS = (
+    'id="root"',
+    "id='root'",
+    'id="app"',
+    "id='app'",
+    "__next",
+    "__nuxt",
+    "data-reactroot",
+    "ng-version",
+    "webpackjsonp",
+)
+_LOGIN_WALL_RE = re.compile(
+    r"(?:"
+    r"(?:log\s*in|sign\s*in|entrar|iniciar\s+sess[aã]o).{0,80}"
+    r"(?:continue|continuar|account|conta|password|senha)|"
+    r"(?:you\s+must\s+be\s+logged|fa[cç]a\s+login|cadastre-se).{0,80}"
+    r"(?:continue|continuar|para\s+ver|to\s+view)"
+    r")",
+    re.IGNORECASE | re.DOTALL,
+)
+_HIGH_VALUE_FACT_KINDS = {"signature_count", "person", "display_name"}
+
+
+def _main_text(extracted: dict[str, Any]) -> str:
+    return str(extracted.get("text_main") or extracted.get("text") or "")
+
+
+def _has_spa_shell(extracted: dict[str, Any], html: str) -> bool:
+    """Recognise an otherwise empty client-rendered shell, not every React page."""
+    if len(_main_text(extracted)) >= 200:
         return False
     low = (html or "").lower()
-    if 'id="root"' in low or "id='root'" in low or "__next" in low:
-        return True
-    if len(text) < 80:
-        return True
-    return False
+    return any(marker in low for marker in _SPA_MARKERS)
+
+
+def _looks_thin(extracted: dict[str, Any], html: str) -> bool:
+    """Only call a short HTTP extract thin when the response is substantial."""
+    return len(_main_text(extracted)) < 80 and len(html or "") >= 1000
+
+
+def _looks_like_login_wall(extracted: dict[str, Any], html: str) -> bool:
+    # Keep this deliberately narrow: a mention of "login" in an article is not a wall.
+    return bool(_LOGIN_WALL_RE.search(f"{_main_text(extracted)}\n{html or ''}"))
 
 
 def _needs_browser_for_missing_facts(extracted: dict[str, Any]) -> bool:
-    """Optional: if HTTP extract still misses high-value fact kinds, try browser visible text."""
+    """Whether HTTP misses enough high-value facts to justify one render."""
     facts = extracted.get("structured_facts") or []
     text = extracted.get("text") or ""
     missing = facts_missing_from_text(facts, extracted.get("text_main") or text)
     kinds = {f.get("kind") for f in missing}
-    return bool(kinds & {"signature_count", "person", "display_name"})
+    high_value = kinds & _HIGH_VALUE_FACT_KINDS
+    # A single person name is commonplace metadata.  A counter, or two distinct
+    # high-value kinds, is a stronger signal that rendered UI may add evidence.
+    return "signature_count" in high_value or len(high_value) >= 2
+
+
+def _browser_reasons(
+    extracted: dict[str, Any],
+    html: str,
+    *,
+    browser_if_missing_facts: bool,
+) -> list[str]:
+    """Return conservative, user-visible reasons to render a page once."""
+    reasons: list[str] = []
+    spa_shell = _has_spa_shell(extracted, html)
+    thin = _looks_thin(extracted, html)
+    if spa_shell:
+        reasons.append("spa_shell")
+    elif thin:
+        reasons.append("thin_http_extract")
+    if _looks_like_login_wall(extracted, html):
+        reasons.append("http_login_wall")
+    if browser_if_missing_facts and _needs_browser_for_missing_facts(extracted):
+        reasons.append("missing_high_value_facts")
+    return reasons
+
+
+def _fact_keys(extracted: dict[str, Any]) -> set[tuple[str, str]]:
+    return {
+        (str(f.get("kind")), str(f.get("value")))
+        for f in (extracted.get("structured_facts") or [])
+        if f.get("kind") in _HIGH_VALUE_FACT_KINDS and f.get("value") is not None
+    }
+
+
+def _browser_is_better(
+    http_extracted: dict[str, Any],
+    browser_extracted: dict[str, Any],
+    *,
+    http_html: str,
+    browser_html: str,
+) -> bool:
+    """Require a material improvement before replacing an HTTP capture.
+
+    Rendering can surface cookie banners or a login prompt.  The browser result
+    therefore needs to recover substantially more content, a new high-value fact,
+    or escape an HTTP login wall; merely being different is not enough.
+    """
+    http_text = _main_text(http_extracted)
+    browser_text = _main_text(browser_extracted)
+    http_login = _looks_like_login_wall(http_extracted, http_html)
+    browser_login = _looks_like_login_wall(browser_extracted, browser_html)
+    if browser_login and not http_login:
+        return False
+    if http_login and not browser_login and len(browser_text) >= 80:
+        return True
+    if len(browser_text) >= 120 and len(browser_text) >= len(http_text) + max(100, len(http_text) // 4):
+        return True
+    if len(browser_extracted.get("text") or "") >= len(http_extracted.get("text") or "") + max(
+        200, len(http_extracted.get("text") or "") // 3
+    ) and not browser_login:
+        return True
+    new_facts = _fact_keys(browser_extracted) - _fact_keys(http_extracted)
+    return bool(new_facts) and len(browser_text) >= 80 and not browser_login
 
 
 def capture_page(
@@ -124,6 +219,9 @@ def capture_page(
     final_url = url
     status = None
     used = None
+    final_choice: str | None = None
+    browser_reasons: list[str] = []
+    browser_decision = "not_needed"
 
     mode = (mode or "auto").lower()
     if mode not in ("auto", "http", "browser"):
@@ -142,48 +240,100 @@ def capture_page(
             final_url = raw.get("final_url") or url
             status = raw.get("status")
             used = "http"
+            final_choice = "http"
             extracted_http = extract_article(raw_html, final_url, enrich=enrich)
 
-    need_browser = mode == "browser" or (
-        mode == "auto"
-        and (
-            used is None
-            or _looks_thin(extracted_http or {}, raw_html)
-            or (browser_if_missing_facts and extracted_http is not None and _needs_browser_for_missing_facts(extracted_http))
+    if mode == "browser":
+        browser_reasons = ["forced_mode"]
+    elif mode == "http":
+        browser_decision = "disabled_http_mode"
+    elif extracted_http is None:
+        browser_reasons = ["http_failed"]
+    else:
+        browser_reasons = _browser_reasons(
+            extracted_http,
+            raw_html,
+            browser_if_missing_facts=browser_if_missing_facts,
         )
-    )
+
+    # A single call here is the per-URL browser budget.  Keep it explicit so a
+    # future retry path cannot accidentally make auto mode launch twice.
+    need_browser = mode == "browser" or (mode == "auto" and bool(browser_reasons))
+    extracted_browser: dict[str, Any] | None = None
+    browser_html = ""
+    browser_visible_text: str | None = None
+    browser_final_url = final_url
+    browser_status = None
 
     if need_browser and mode != "http":
+        browser_decision = "attempted"
         b = _fetch_browser(url, storage_state, timeout_ms=int(timeout * 1000))
         if b.get("error"):
             errors.append(f"browser: {b['error']}")
+            browser_decision = "failed_kept_http" if extracted_http is not None else "failed"
             # keep HTTP extract if we had one
         else:
             methods.append("browser")
-            raw_html = b.get("text") or raw_html
-            visible_text = b.get("visible_text") or ""
-            final_url = b.get("final_url") or final_url
-            status = b.get("status") if b.get("status") is not None else status
-            used = "browser" if mode == "browser" or not extracted_http else "http+browser"
+            browser_html = b.get("text") or ""
+            browser_visible_text = b.get("visible_text") or ""
+            browser_final_url = b.get("final_url") or final_url
+            browser_status = b.get("status")
+            extracted_browser = extract_article(
+                browser_html,
+                browser_final_url,
+                visible_text=browser_visible_text,
+                enrich=enrich,
+            )
+            if mode == "browser" or extracted_http is None:
+                raw_html = browser_html
+                visible_text = browser_visible_text
+                final_url = browser_final_url
+                status = browser_status
+                used = "browser"
+                final_choice = "browser"
+                browser_decision = "selected_browser"
+            elif _browser_is_better(
+                extracted_http,
+                extracted_browser,
+                http_html=raw_html,
+                browser_html=browser_html,
+            ):
+                raw_html = browser_html
+                visible_text = browser_visible_text
+                final_url = browser_final_url
+                status = browser_status if browser_status is not None else status
+                used = "http+browser"
+                final_choice = "browser"
+                browser_decision = "selected_browser"
+            else:
+                # Preserve the original HTTP response and extraction when browser
+                # rendering only exposed less useful chrome/login content.
+                used = "http+browser"
+                final_choice = "http"
+                browser_decision = "kept_http_better"
 
     if not raw_html and used is None:
         env = build_envelope(
             "page",
             source={"url": url},
             items=[],
-            meta={"mode": mode, "methods": methods, "used": used},
+            meta={
+                "mode": mode,
+                "methods": methods,
+                "used": used,
+                "final_choice": final_choice,
+                "browser_reason": browser_reasons,
+                "browser_decision": browser_decision,
+            },
             errors=errors or ["empty response"],
             notes=["Single-page capture failed."],
             collected_at=collected_at,
         )
         return env
 
-    # Prefer re-extract with visible text when browser ran; else use HTTP extract
-    if visible_text is not None and "browser" in methods:
-        extracted = extract_article(
-            raw_html, final_url, visible_text=visible_text, enrich=enrich
-        )
-    elif extracted_http is not None and used == "http":
+    if final_choice == "browser" and extracted_browser is not None:
+        extracted = extracted_browser
+    elif extracted_http is not None:
         extracted = extracted_http
     else:
         extracted = extract_article(raw_html, final_url, enrich=enrich)
@@ -193,6 +343,7 @@ def capture_page(
         "final_url": final_url,
         "status": status,
         "fetch_method": used,
+        "capture_choice": final_choice,
     }
     if include_html:
         item["html"] = raw_html
@@ -203,7 +354,7 @@ def capture_page(
     notes = [
         "Material-only capture (title/text/links + structured facts). No classification.",
         "Main article via trafilatura; meta/JSON-LD/embedded counters merged into text when missing.",
-        "mode=auto: HTTP first; browser if SPA shell or high-value facts still missing from main text.",
+        "mode=auto: HTTP first; one browser attempt only for a likely SPA shell, thin response, or login wall.",
     ]
     return build_envelope(
         "page",
@@ -213,6 +364,9 @@ def capture_page(
             "mode": mode,
             "methods": methods,
             "used": used,
+            "final_choice": final_choice,
+            "browser_reason": browser_reasons,
+            "browser_decision": browser_decision,
             "status": status,
             "text_len": item.get("text_len"),
             "text_main_len": item.get("text_main_len"),
@@ -274,7 +428,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="auto",
         help="Fetch mode (default: auto)",
     )
-    ap.add_argument("--storage-state", default=None, help="Playwright storage_state.json (browser mode)")
+    ap.add_argument(
+        "--storage-state",
+        default=None,
+        help="Playwright storage_state.json (auto/browser modes)",
+    )
     ap.add_argument("--timeout", type=float, default=30.0, help="Timeout seconds (default 30)")
     ap.add_argument("--include-html", action="store_true", help="Embed raw HTML in item (large)")
     ap.add_argument(

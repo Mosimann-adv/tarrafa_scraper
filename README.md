@@ -105,7 +105,7 @@ Config em camadas: flags → env (`TARRAFA_TIMEOUT`, …) → `./tarrafa.toml` �
 | `tarrafa init` | Cria workspace opcional (`tarrafa.toml` + pastas) |
 | `tarrafa ig` | Comentários Instagram → JSON com permalink `/c/{id}/` |
 | `tarrafa page` | Uma URL pública → texto + facts (meta / JSON-LD) |
-| `tarrafa site` | Crawl BFS same-host (max pages / depth) |
+| `tarrafa site` | Crawl concorrente same-host (max pages / depth) |
 | `tarrafa feed` | RSS/Atom → envelope de entradas |
 | `tarrafa shot` | Screenshot de alta qualidade (PNG + JSON) |
 | `tarrafa video` | Meta de vídeo + frames (+ download opcional via yt-dlp) |
@@ -155,7 +155,7 @@ Extras opcionais:
 
 ```bash
 python -m pip install ".[av]"     # yt-dlp (download de vídeo)
-python -m pip install ".[site]"   # scrapy (opcional; site usa BFS httpx por padrão)
+python -m pip install ".[site]"   # scrapy opcional; site usa httpx assíncrono por padrão
 # ffmpeg no PATH → frames a partir do arquivo baixado
 ```
 
@@ -183,6 +183,9 @@ tarrafa page --urls-file ./urls.txt --out ./out/pages/ --mode http
 ```
 
 Além do corpo do artigo, colhe **meta/OG**, **JSON-LD** e contadores embutidos (`structured_facts`, `text_main` = corpo puro).
+No modo padrão `auto`, tenta HTTP primeiro e abre o navegador no máximo uma vez
+quando detecta página dinâmica ou captura insuficiente. Se o navegador produzir
+um resultado pior, a captura HTTP é preservada.
 
 ### Screenshot + álbum
 
@@ -279,6 +282,9 @@ tarrafa ig --url https://www.instagram.com/accounts/login/ --headed --max-commen
 tarrafa ig --url https://www.instagram.com/p/SHORTCODE/ --out ./comments.json \
   --storage-state ./storage_state.json --expand-replies --headed
 ```
+
+O crawl reutiliza uma sessão HTTP assíncrona com concorrência conservadora,
+retries transitórios e processamento em ordem BFS.
 
 ---
 
