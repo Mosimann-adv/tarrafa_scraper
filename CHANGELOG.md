@@ -18,6 +18,8 @@
 - `browser_util.chromium_page` — suporte a `accept_downloads`, `cdp_url` e yield do `context`.
 
 ### Changed
+- Docs/agents: **CLI `tarrafa` canônico** para coletas (IG/shot/STJ); Playwright MCP
+  extension fica opcional e só com bridge já conectado — não substitui o CLI.
 - `site` agora reutiliza um cliente HTTP assíncrono com pool, concorrência conservadora,
   retries transitórios e ordem BFS determinística.
 - `page --mode auto` registra o motivo do fallback para Playwright, limita a uma tentativa

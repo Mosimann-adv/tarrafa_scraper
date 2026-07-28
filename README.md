@@ -389,7 +389,7 @@ Configuração em camadas: flags → env (`TARRAFA_TIMEOUT`, …) →
 | Python 3.10+, dependências e Chromium | Computador de quem usa |
 | Sessão Instagram (`storage_state.json`) | Login nativo de cada usuário; nunca compartilhe o arquivo |
 | `DATAJUD_API_KEY` | Opcional; se usada, deve ficar no `.env` local |
-| Token Playwright MCP | Opcional, para Chrome real/extensão |
+| Token Playwright MCP | Opcional (só host/IDE com extension); coletas usam o **CLI** + `storage_state` |
 
 **Não** digite senha no CLI. **Não** automatize Facebook OIDC. Os arquivos são
 gravados no caminho informado pelo usuário.
@@ -632,13 +632,14 @@ tarrafa_scraper/
 - Env carregado no startup (sem sobrescrever variáveis já no processo):
   1. `~/.tarrafa/.env` (user-global)
   2. `<repo>/.env` (projeto)
-- Token opcional da extensão Playwright MCP:
+- Coletas (IG, shot, STJ, …) passam pelo **CLI `tarrafa`**, não pelo Playwright MCP.
+- Token opcional da extensão Playwright MCP (host/IDE; o CLI não depende dele):
 
 ```env
 PLAYWRIGHT_MCP_EXTENSION_TOKEN=seu_token_aqui
 ```
 
-Template: `.env.example`. Conferir com `tarrafa doctor` (presença mascarada).
+Template: `.env.example`. Conferir com `tarrafa doctor` (token mascarado + `storage_state`).
 
 Uso lícito e prova apenas; respeitar ToS e lei local. O Tarrafa **não** presta serviço advocatício nem substitui análise jurídica humana.
 

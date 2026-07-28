@@ -32,9 +32,9 @@ CASO/
 
 | Problema | Causa | Mitigação |
 |----------|--------|-----------|
-| MCP “File access denied” ao salvar PNG no caso | MCP só grava em roots permitidos da sessão (às vezes outro CWD) | Preferir **`tarrafa shot --out-dir CASO\shots`**. Se MCP gravar em outro lugar, **copiar** para o caso. |
+| MCP “File access denied” / hang na extensão | MCP grava só em roots da sessão; `--extension` espera Chrome conectado | **Não usar MCP** para coleta. **`tarrafa shot` / `tarrafa ig`** no path do caso. |
 | “Sem imagem” no HTML | Shot existe mas crop do avatar falhou / sem `--avatar` | Usar print de perfil no `shots[]`; avatar: preferir **foto que o usuário indicar**, senão crop cuidadoso ou omitir. |
-| Login wall no print | Sessão sem login | Playwright extension logada **ou** shot com storage; **nunca** embutir modal de login no dossier. |
+| Login wall no print / 0 comentários | Sessão sem login ou `storage_state` expirado | `tarrafa ig|shot --storage-state …`; se preciso, login headed + `--save-storage`. **Nunca** embutir modal de login no dossier. |
 | Inventário com nome errado | ASR / label informal | Confirmar no **IG verificado** + autos; corrigir no meta. |
 
 Comandos:

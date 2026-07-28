@@ -110,7 +110,21 @@ tarrafa ig --url "POST_URL" --out "OUT.json" \
   --storage-state "./storage_state.json" --expand-replies --headed
 ```
 
-## Local env (Playwright MCP)
+## Browser / sessão (canônico = CLI)
+
+A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar Playwright MCP para coletas de rotina.
+
+| Prioridade | Como | Quando |
+|------------|------|--------|
+| **1 · CLI** | `tarrafa ig|shot|page|stj …` + `storage_state.json` | Padrão (IG, prints, STJ, etc.) |
+| **2 · CLI headed / CDP** | `--headed`, `stj --cdp`, login nativo + `--save-storage` | Login, Cloudflare, storage expirado |
+| **3 · MCP extension** | `@playwright/mcp --extension` (opcional) | Só se a extensão **já estiver conectada**; inspeção pontual. **Não** scrape em massa |
+
+- Smoke IG rápido: `tarrafa ig --url URL --out OUT.json --storage-state ./storage_state.json --max-comments 15`
+- Coleta profunda: `--expand-replies` (pode demorar; sempre `--max-comments` se for teste)
+- Gravar sempre no path do caso (`--out` / `--out-dir`). Pasta `casos/` é gitignored.
+
+## Local env
 
 ```text
 ~/.tarrafa/.env     # preferido (user-global)
@@ -118,15 +132,15 @@ tarrafa ig --url "POST_URL" --out "OUT.json" \
 .env.example        # template
 ```
 
-- Variável: `PLAYWRIGHT_MCP_EXTENSION_TOKEN` — token da extensão Playwright MCP (Chrome real).
+- `PLAYWRIGHT_MCP_EXTENSION_TOKEN` — opcional; só para MCP extension no host (ex.: Grok). O CLI **não depende** dele para coletar.
 - O CLI chama `load_tarrafa_env()` no startup; **não sobrescreve** env já definido no processo.
-- `tarrafa doctor` mostra se o token está presente (valor mascarado).
+- `tarrafa doctor` mostra token (mascarado) e `storage_state.json` se presentes.
 - **Nunca** commitar `.env`, token em README, ou hardcode em código.
-- Para sessão IG logada de verdade, preferir extensão Playwright MCP; `storage_state.json` continua válido no Chromium do CLI.
+- Sessão IG logada no CLI: `storage_state.json` (login nativo headed + `--save-storage`).
 
 ## Hard rules
 
-1. Prefer **CLI** over reinventing scrapers in browser eval.
+1. Prefer **CLI** over Playwright MCP, browser eval, ou scrapers reinventados. MCP extension **não** substitui `tarrafa ig` / `shot` / `stj`.
 2. Never type passwords; never automate Facebook OIDC / password-reset.
 3. Write outputs into the **output path** the user names.
 4. Do not commit `storage_state.json` or `.env`.
@@ -139,7 +153,7 @@ tarrafa ig --url "POST_URL" --out "OUT.json" \
 11. `datajud`: only with known CNJs (from DJEN or other sources); index typically has **no** party names.
 12. `pdf-extract`: material-only identity/contact/CNJ hints from court PDFs; validate before citing.
 13. **Perfil / influencer:** ver `docs/PROFILE_PIPELINE.md` (IG shots, homônimo/CPF, djen parte, V1 HTML vs V2 anexo).
-14. **IG prints:** prefer `tarrafa shot --out-dir CASO/shots` (grava no path do caso). MCP may refuse paths outside session roots — copy into the case if needed. Never embed login-wall shots in `dossier`.
+14. **IG prints e comentários:** `tarrafa shot` / `tarrafa ig` no path do caso. Não depender de MCP para gravar PNG/JSON. Never embed login-wall shots in `dossier`.
 15. **CPF vs CNPJ mask:** CNPJá `***ABCDEF**` ≈ CPF digits 4–9. Do **not** attach a company QSA to the person if the mask does not match the CPF from court PDFs.
 16. Judicial annex PDF (Times, no internal paths) is **orchestration**, not a CLI tool — keep case narrative out of this repo.
 
