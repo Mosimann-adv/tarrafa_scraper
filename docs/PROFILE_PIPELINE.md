@@ -22,7 +22,8 @@ CASO/
 1. **Âncoras** — nome completo + handle e/ou cidade/função.
 2. **Web/IG** — bio, contagem, link na bio, reel relevante.
 3. **`tarrafa shot`** no perfil e no post/reel (path = `CASO/shots`).
-4. **`djen --papel parte`** com `--texto "Nome Completo"` **e** `--texto "handle"` (handles quase nunca saem no DJEN; o nome sim).
+4. **`djen --papel parte --cpf`** quando houver CPF. Sem CPF, usar `--nome "Nome
+   Completo"` e `--texto "handle"` (handles quase nunca saem no DJEN; o nome sim).
 5. **`--follow-datajud`** ou `datajud` nos CNJs com nexo.
 6. **`cnpj`** só com número; **não** atribuir QSA ao alvo sem CPF coerente.
 7. **`pdf-extract --dir raw/processos`** quando o advogado baixar autos.
@@ -46,21 +47,24 @@ tarrafa shot --url "https://www.instagram.com/HANDLE/reel/ID/" --out-dir "CASO\s
 
 ## Homônimos e CPF (crítico)
 
-- Máscara de sócio no CNPJá `***ABCDEF**` = dígitos **4–9** do CPF (ex.: `529.982.247-25` → `***982247**`).
+- Máscara de sócio no CNPJá `***ABCDEF**` = dígitos **4–9** do CPF informado.
 - **Nunca** fundir QSA com a pessoa do perfil se a máscara **não** bate com o CPF dos autos.
-- Exemplo sintético: CPF da parte `529.982.247-25` **≠** sócio “Fulano Exemplo” máscara `***111222**` em outro CNPJ.
+- Se os dígitos centrais do CPF da parte divergirem da máscara do sócio, não atribuir o CNPJ à pessoa.
 - Nexo forte de parte: **handle nos autos**, cônjuge co-parte com IG cruzado, e-mail de petição, nome civil + foto/handle.
 - Criminal de homônimo → seção “não fundir”, não facts.
 
 ## DJEN parte
 
 ```powershell
-tarrafa djen --papel parte --texto "Nome Completo" --max-items 50 --out raw\djen_nome.json
+tarrafa djen --papel parte --cpf "<CPF>" --max-items 50 --out raw\djen_cpf.json
+tarrafa djen --papel parte --nome "Nome Completo" --max-items 50 --out raw\djen_nome.json
 tarrafa djen --papel parte --texto "handleig" --max-items 30 --out raw\djen_handle.json
-tarrafa djen --papel parte --texto "Nome Completo" --follow-datajud `
+tarrafa djen --papel parte --cpf "<CPF>" --follow-datajud `
   --datajud-out raw\datajud.json --max-cnj 15 --out raw\djen.json
 ```
 
+- Com `--cpf`, a ferramenta ignora `--nome`/`--texto` na consulta e só retém
+  comunicações que contenham o CPF exato no teor ou no destinatário estruturado.
 - `identity_hints` no summary = heurística; validar.
 - Hit sem âncora = gap, não fato.
 

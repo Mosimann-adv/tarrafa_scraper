@@ -36,7 +36,7 @@ Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or cas
 | HTML impressão a partir de shots/frames | `tarrafa album` |
 | Ficha HTML perfil (avatar + achados + fontes + prints seletivos) | `tarrafa dossier` |
 | CNPJ (API open CNPJá) — todo perfil | `tarrafa cnpj` |
-| DJEN comunicações — advogado (`--oab`) ou parte (`--papel parte --texto`) | `tarrafa djen` |
+| DJEN comunicações — advogado (`--oab`) ou parte (priorize `--cpf`) | `tarrafa djen` |
 | Datajud capa/movimentos (CNJ) — após DJEN / CNJs conhecidos | `tarrafa datajud` |
 | Inteiro teor STJ (SCON PDF; Cloudflare) | `tarrafa stj` |
 | Texto + identity hints de PDFs (autos) | `tarrafa pdf-extract` |
@@ -88,7 +88,8 @@ tarrafa dossier \
 
 tarrafa cnpj --cnpj "00.000.000/0001-91" --out "OUT_DIR/cnpj.json"
 tarrafa djen --oab 12345 --uf SP --max-items 100 --out "OUT_DIR/djen.json"
-tarrafa djen --papel parte --texto "Nome Completo" --max-items 50 --out "OUT_DIR/djen_parte.json"
+tarrafa djen --papel parte --cpf "<CPF>" --max-items 50 --out "OUT_DIR/djen_cpf.json"
+tarrafa djen --papel parte --nome "Nome Completo" --max-items 50 --out "OUT_DIR/djen_parte.json"
 tarrafa djen --papel parte --texto "handle" --follow-datajud \
   --datajud-out "OUT_DIR/datajud.json" --out "OUT_DIR/djen.json"
 tarrafa datajud --cnj "0000000-00.0000.0.00.0000" --out "OUT_DIR/datajud.json"
@@ -149,7 +150,10 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 7. Material-only: capture evidence, do not classify ofensas.
 8. `dossier` only **renders** provided avatar/meta/facts/sources/shots — no web search, no biography invention. Prefer multi-source overview e prints seletivos; nunca embutir login wall.
 9. `cnpj` is for **any profile** (needs CNPJ number).
-10. `djen`: **advogado** → `--oab`+`--uf` (pós-filtro); **parte** → `--papel parte --texto` nome completo e/ou handle (`identity_hints` no summary). Optional `--follow-datajud`. Do **not** fuse processes by short name alone (homônimo).
+10. `djen`: **advogado** → `--oab`+`--uf` (pós-filtro); **parte** → havendo CPF,
+    `--papel parte --cpf` tem prioridade e conferência exata local. Sem CPF, usar
+    `--nome`/`--texto` (`identity_hints` no summary). Optional `--follow-datajud`.
+    Do **not** fuse processes by short name alone (homônimo).
 11. `datajud`: only with known CNJs (from DJEN or other sources); index typically has **no** party names.
 12. `pdf-extract`: material-only identity/contact/CNJ hints from court PDFs; validate before citing.
 13. **Perfil / influencer:** ver `docs/PROFILE_PIPELINE.md` (IG shots, homônimo/CPF, djen parte, V1 HTML vs V2 anexo).

@@ -353,7 +353,7 @@ Fluxo típico:
 | Comentários de post no Instagram | `tarrafa ig --url POST_URL --out ./raw/ig.json --storage-state ./storage_state.json --headed` |
 | Consultar CNPJ | `tarrafa cnpj --cnpj 00.000.000/0001-91 --out ./raw/cnpj.json` |
 | Diário por advogado | `tarrafa djen --oab 12345 --uf SP --out ./raw/djen.json` |
-| Diário por parte | `tarrafa djen --papel parte --texto "Nome Completo" --out ./raw/djen.json` |
+| Diário por parte | `tarrafa djen --papel parte --cpf "<CPF>" --out ./raw/djen.json` |
 | Processo por CNJ | `tarrafa datajud --cnj … --out ./raw/datajud.json` |
 | Inteiro teor do STJ | `tarrafa stj --warmup --headed --save-storage ./stj.json` |
 | Extrair texto de PDFs | `tarrafa pdf-extract --dir ./pdfs --recursive --out ./raw/pdf.json` |
@@ -410,7 +410,7 @@ gravados no caminho informado pelo usuário.
 | `tarrafa album` | Compila shots/frames em HTML pronto para impressão |
 | `tarrafa dossier` | Ficha HTML: avatar + achados + fontes + prints seletivos |
 | `tarrafa cnpj` | Consulta CNPJ via API open CNPJá (sem API key) |
-| `tarrafa djen` | Comunicações DJEN — advogado (`--oab`) ou parte (`--papel parte --texto`) |
+| `tarrafa djen` | Comunicações DJEN — advogado (`--oab`) ou parte (prioridade por `--cpf`) |
 | `tarrafa datajud` | Capa/movimentos Datajud por CNJ |
 | `tarrafa stj` | Inteiro teor STJ/SCON (PDF; sessão headed/CDP se Cloudflare) |
 | `tarrafa pdf-extract` | Texto + identity hints de PDFs |
@@ -542,11 +542,14 @@ tarrafa cnpj --cnpj 00.000.000/0001-91 --out ./out/cnpj.json
 # Advogado: diário por OAB + UF
 tarrafa djen --oab 12345 --uf SP --max-items 100 --out ./out/djen.json
 
-# Parte: busca no teor (nome e/ou handle)
-tarrafa djen --papel parte --texto "Nome Completo" --max-items 50 --out ./out/djen_parte.json
+# Parte: CPF é a âncora prioritária e recebe conferência exata local
+tarrafa djen --papel parte --cpf "<CPF>" --max-items 50 --out ./out/djen_cpf.json
+
+# Parte sem CPF: busca por nome estruturado ou texto/handle
+tarrafa djen --papel parte --nome "Nome Completo" --max-items 50 --out ./out/djen_parte.json
 
 # Parte + Datajud em cadeia (CNJs encontrados)
-tarrafa djen --papel parte --texto "Nome Completo" --follow-datajud \
+tarrafa djen --papel parte --cpf "<CPF>" --follow-datajud \
   --datajud-out ./out/datajud.json --max-cnj 15 --out ./out/djen.json
 
 tarrafa datajud --cnj 0000000-00.0000.0.00.0000 --out ./out/datajud.json
@@ -565,7 +568,9 @@ tarrafa pdf-extract --dir ./out/pdfs --recursive --out ./out/pdf_extract.json
 
 - **cnpj:** open CNPJá sem API key; não busca por nome de sócio.
 - **djen advogado:** amostra + pós-filtro OAB.
-- **djen parte:** `--texto` no teor; `identity_hints` no summary; não fundir homônimos só por nome curto.
+- **djen parte:** havendo CPF, use `--cpf`; ele prevalece sobre `--nome`/`--texto` e cada
+  resultado passa por conferência exata local. Sem CPF, use `--nome` ou `--texto`;
+  `identity_hints` permanece heurístico e nomes curtos não devem fundir homônimos.
 - **datajud:** índice típico **sem** partes — use CNJs já conhecidos.
 - **stj:** SCON costuma exigir desafio Cloudflare; não contorna captcha — use `--warmup --headed` ou `--cdp`. Exit **5** = challenge.
 - **pdf-extract:** texto embutido (pypdf); PDF só-imagem precisa OCR externo.

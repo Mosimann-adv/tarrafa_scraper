@@ -8,6 +8,8 @@
   logradouro usa comparação mais estrita e falhas retornam exit code `1`.
 
 ### Added
+- **`tarrafa djen --cpf`** — busca de parte priorizada pelo CPF no teor da ComunicaAPI,
+  com conferência exata local e sem fallback silencioso para nome/texto.
 - **`tarrafa order-risk`** — triagem de risco de chargeback em pedido e-commerce:
   CPF/CEP/telefone, DJEN+Datajud por CPF, loja (page + CNPJ + RDAP), opcional Maps/IG;
   envelope JSON + HTML print-ready com **imagens embutidas (data URI)**.

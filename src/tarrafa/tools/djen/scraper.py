@@ -9,9 +9,10 @@ Uso típico — advogado (OAB):
 
 Uso típico — parte (busca no teor; sem pós-filtro OAB):
 
-  tarrafa djen --papel parte --texto "Nome Completo" --out djen.json
+  tarrafa djen --papel parte --cpf "<CPF>" --out djen.json
+  tarrafa djen --papel parte --nome "Nome Completo" --out djen.json
   tarrafa djen --papel parte --texto "handle_exemplo" --max-items 50 --out djen.json
-  tarrafa djen --papel parte --texto "Nome Completo" --follow-datajud --datajud-out datajud.json
+  tarrafa djen --papel parte --cpf "<CPF>" --follow-datajud --datajud-out datajud.json
 
 API: GET https://comunicaapi.pje.jus.br/api/v1/comunicacao
 Swagger: https://comunicaapi.pje.jus.br/swagger/index.html (djen.yml)
@@ -20,8 +21,8 @@ Notas:
   - itensPorPagina só aceita 5 ou 100.
   - API limita consultas a 10.000 resultados no total.
   - papel=advogado: pós-filtra OAB/nome em destinatarioadvogados e texto.
-  - papel=parte: não pós-filtra OAB; extrai identity_hints do teor; nexo exige âncora
-    (nome completo, handle, CPF) — não fundir homônimos só por nome curto.
+  - papel=parte: --cpf tem prioridade sobre nome/texto e exige correspondência exata local;
+    sem CPF, extrai identity_hints do teor e o nexo exige outra âncora.
   - Não é inventário completo de processos — só publicações no diário.
 """
 from __future__ import annotations
@@ -37,7 +38,12 @@ from urllib.parse import urlencode
 
 from tarrafa.core.envelope import build_envelope
 from tarrafa.core.http import DEFAULT_TIMEOUT, DEFAULT_UA, ensure_httpx
-from tarrafa.core.identity_extract import extract_identity_hints, merge_hints
+from tarrafa.core.identity_extract import (
+    digits_only,
+    extract_identity_hints,
+    format_cpf,
+    merge_hints,
+)
 from tarrafa.core.writers import write_json
 
 BASE_URL = "https://comunicaapi.pje.jus.br/api/v1/comunicacao"
@@ -57,6 +63,28 @@ def strip_html(text: str) -> str:
 
 def normalize_oab(oab: str) -> str:
     return re.sub(r"\D", "", oab or "")
+
+
+def normalize_cpf(cpf: str) -> str | None:
+    """Normaliza CPF para a forma usada na consulta textual da ComunicaAPI."""
+    return format_cpf(cpf)
+
+
+def item_matches_cpf(item: dict[str, Any], cpf: str) -> bool:
+    """Confere CPF exato no teor ou no destinatário estruturado retornado pela API."""
+    target = digits_only(cpf)
+    if len(target) != 11:
+        return False
+
+    for destinatario in item.get("destinatarios") or []:
+        if not isinstance(destinatario, dict):
+            continue
+        if digits_only(str(destinatario.get("cpf_cnpj") or "")) == target:
+            return True
+
+    texto = strip_html(str(item.get("texto") or ""))
+    flexible = r"(?<!\d)" + r"[\s./-]*".join(re.escape(d) for d in target) + r"(?!\d)"
+    return re.search(flexible, texto) is not None
 
 
 def item_matches_lawyer(
@@ -117,6 +145,7 @@ def resolve_papel(
     oab: str | None,
     nome: str | None,
     texto: str | None,
+    cpf: str | None = None,
 ) -> str:
     """Return 'advogado' | 'parte'."""
     p = (papel or "auto").strip().lower()
@@ -125,6 +154,8 @@ def resolve_papel(
     if p in ("advogado", "lawyer", "oab"):
         return "advogado"
     # auto
+    if cpf:
+        return "parte"
     if oab or nome:
         return "advogado"
     if texto:
@@ -256,6 +287,7 @@ def collect_comunicacoes(
     uf: str | None = None,
     nome: str | None = None,
     texto: str | None = None,
+    cpf: str | None = None,
     numero_processo: str | None = None,
     tribunal: str | None = None,
     date_from: str | None = None,
@@ -273,6 +305,10 @@ def collect_comunicacoes(
     if extract_hints is None:
         extract_hints = papel == "parte"
 
+    cpf_normalizado = normalize_cpf(cpf or "") if cpf else None
+    if cpf and not cpf_normalizado:
+        raise ValueError("CPF inválido: informe 11 dígitos não repetidos")
+
     base_params: dict[str, Any] = {
         "itensPorPagina": page_size,
     }
@@ -282,11 +318,14 @@ def collect_comunicacoes(
         base_params["ufOab"] = uf.strip().upper()
     if nome and papel == "advogado":
         base_params["nomeAdvogado"] = nome.strip()
-    if texto:
+    if cpf_normalizado:
+        # A API pública não expõe filtro GET estruturado por CPF. A busca mais
+        # específica disponível é o CPF no teor, seguida de conferência local exata.
+        base_params["texto"] = cpf_normalizado
+    elif texto:
         base_params["texto"] = texto
     elif nome and papel == "parte":
-        # Party: put full name in free-text search, not nomeAdvogado
-        base_params["texto"] = nome.strip()
+        base_params["nomeParte"] = nome.strip()
     if numero_processo:
         base_params["numeroProcesso"] = re.sub(r"\D", "", numero_processo)
     if tribunal:
@@ -337,6 +376,8 @@ def collect_comunicacoes(
                 if iid in seen_ids:
                     continue
                 seen_ids.add(iid)
+            if cpf_normalizado and not item_matches_cpf(it, cpf_normalizado):
+                continue
             if post_filter and papel == "advogado" and (oab or nome):
                 if not item_matches_lawyer(it, oab=oab, uf=uf, nome=nome):
                     continue
@@ -359,6 +400,8 @@ def collect_comunicacoes(
             "page_size": page_size,
             "max_items": max_items,
             "post_filter": post_filter and papel == "advogado",
+            "cpf_exact_filter": bool(cpf_normalizado),
+            "search_priority": "cpf" if cpf_normalizado else "default",
             "papel": papel,
             "extract_hints": extract_hints,
             "params": {k: v for k, v in base_params.items() if k != "itensPorPagina"},
@@ -415,7 +458,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="tarrafa djen",
         description=(
             "Consulta comunicações do DJEN (ComunicaAPI). "
-            "Advogado: --oab + --uf. Parte/influencer: --papel parte --texto. "
+            "Advogado: --oab + --uf. Parte: priorize --cpf; nome/handle usam --nome/--texto. "
             "Material-only; não é lista completa de processos."
         ),
     )
@@ -425,15 +468,20 @@ def main(argv: list[str] | None = None) -> int:
         default="auto",
         help=(
             "advogado = pós-filtro OAB/nome; parte = busca teor sem filtro OAB + identity_hints; "
-            "auto = oab/nome->advogado, só texto->parte (default)"
+            "auto = cpf->parte, oab/nome->advogado, só texto->parte (default)"
         ),
     )
     ap.add_argument("--oab", default=None, help="Número OAB (só dígitos ou máscara)")
     ap.add_argument("--uf", default=None, help="UF da OAB (ex.: PR)")
     ap.add_argument(
+        "--cpf",
+        default=None,
+        help="CPF da parte; tem prioridade sobre --nome/--texto e recebe conferência exata local",
+    )
+    ap.add_argument(
         "--nome",
         default=None,
-        help="Nome (advogado: filtro API+pós-filtro; parte: vira busca --texto se texto omitido)",
+        help="Nome (advogado: filtro API+pós-filtro; parte: filtro nomeParte se texto omitido)",
     )
     ap.add_argument("--texto", default=None, help="Busca livre no teor (recomendado para partes)")
     ap.add_argument("--processo", default=None, dest="numero_processo", help="Número do processo")
@@ -483,21 +531,28 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
     args = ap.parse_args(argv)
 
-    if not any([args.oab, args.nome, args.texto, args.numero_processo]):
+    if not any([args.oab, args.nome, args.texto, args.cpf, args.numero_processo]):
         print(
-            "djen: informe ao menos --oab, --nome, --texto ou --processo",
+            "djen: informe ao menos --oab, --cpf, --nome, --texto ou --processo",
             file=sys.stderr,
         )
         return 2
 
     papel = resolve_papel(
-        args.papel, oab=args.oab, nome=args.nome, texto=args.texto
+        args.papel, oab=args.oab, nome=args.nome, texto=args.texto, cpf=args.cpf
     )
+    cpf_normalizado = normalize_cpf(args.cpf or "") if args.cpf else None
+    if args.cpf and not cpf_normalizado:
+        print("djen: --cpf inválido: informe 11 dígitos não repetidos", file=sys.stderr)
+        return 2
+    if args.cpf and papel != "parte":
+        print("djen: --cpf só pode ser usado com --papel parte (ou --papel auto)", file=sys.stderr)
+        return 2
     if args.oab and not args.uf and papel == "advogado":
         print("djen: aviso: --oab sem --uf costuma ser mais ruidoso", file=sys.stderr)
-    if papel == "parte" and not (args.texto or args.nome or args.numero_processo):
+    if papel == "parte" and not (args.cpf or args.texto or args.nome or args.numero_processo):
         print(
-            "djen: papel=parte: use --texto com nome completo e/ou handle (ex.: handleig)",
+            "djen: papel=parte: priorize --cpf; alternativamente use --nome ou --texto",
             file=sys.stderr,
         )
         return 2
@@ -514,6 +569,7 @@ def main(argv: list[str] | None = None) -> int:
         uf=args.uf,
         nome=args.nome,
         texto=args.texto,
+        cpf=args.cpf,
         numero_processo=args.numero_processo,
         tribunal=args.tribunal,
         date_from=args.date_from,
@@ -549,6 +605,11 @@ def main(argv: list[str] | None = None) -> int:
                 "Homônimo: trate processos sem âncora de nexo como gap, não como fato.",
             ]
         )
+        if cpf_normalizado:
+            notes.append(
+                "CPF priorizado: --nome/--texto não foram usados na consulta; "
+                "cada comunicação foi conferida localmente pelo CPF exato."
+            )
 
     envelope = build_envelope(
         "djen",
@@ -558,8 +619,10 @@ def main(argv: list[str] | None = None) -> int:
             "papel": papel,
             "oab": normalize_oab(args.oab) if args.oab else None,
             "uf": (args.uf or "").upper() or None,
+            "cpf": cpf_normalizado,
             "nome": args.nome,
             "texto": args.texto,
+            "search_priority": "cpf" if cpf_normalizado else "default",
         },
         items=envelope_items,
         meta=result["meta"],

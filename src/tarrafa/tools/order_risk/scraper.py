@@ -215,7 +215,7 @@ def _run_djen_cpf(cpf: str, *, max_items: int, timeout: float, raw_dir: Path) ->
     }
     try:
         coll = collect_comunicacoes(
-            texto=formatted,
+            cpf=formatted,
             papel="parte",
             max_items=max_items,
             post_filter=False,
@@ -231,7 +231,7 @@ def _run_djen_cpf(cpf: str, *, max_items: int, timeout: float, raw_dir: Path) ->
     # envelope partial dump
     env = build_envelope(
         "djen",
-        source={"papel": "parte", "texto": formatted, "from": "order-risk"},
+        source={"papel": "parte", "cpf": formatted, "search_priority": "cpf", "from": "order-risk"},
         items=[{"kind": "djen_summary", **summary}] + items,
         meta=coll.get("meta") or {},
         errors=coll.get("errors") or [],

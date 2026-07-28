@@ -23,7 +23,7 @@ TOOLS = [
     ("album", "Compile shots/frames into print-ready HTML album"),
     ("dossier", "Ficha HTML perfil: avatar + achados + fontes + prints seletivos"),
     ("cnpj", "Consulta CNPJ (API open CNPJá /office) -> envelope JSON"),
-    ("djen", "Comunicações DJEN (ComunicaAPI) — advogado (OAB) ou parte (--papel parte --texto)"),
+    ("djen", "Comunicações DJEN — advogado (OAB) ou parte (prioridade por --cpf)"),
     ("datajud", "Capa/movimentos Datajud (API pública CNJ) por CNJ -> envelope"),
     ("stj", "STJ SCON inteiro teor (PDF) — Cloudflare-aware (warmup/headed/CDP)"),
     ("pdf-extract", "Texto + identity hints (CPF/CNJ/endereço/…) de PDFs judiciais"),
