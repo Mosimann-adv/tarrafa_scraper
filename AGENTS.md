@@ -42,6 +42,7 @@ Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or cas
 | Texto + identity hints de PDFs (autos) | `tarrafa pdf-extract` |
 | Triagem chargeback pedido e-commerce (JSON + HTML embutido) | `tarrafa order-risk` |
 | Checar ambiente | `tarrafa doctor` |
+| Ensinar a Tarrafa a outra IA (fora deste repo) | `tarrafa skills install` |
 
 ## Paths
 
@@ -160,6 +161,11 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 14. **IG prints e comentários:** `tarrafa shot` / `tarrafa ig` no path do caso. Não depender de MCP para gravar PNG/JSON. Never embed login-wall shots in `dossier`.
 15. **CPF vs CNPJ mask:** CNPJá `***ABCDEF**` ≈ CPF digits 4–9. Do **not** attach a company QSA to the person if the mask does not match the CPF from court PDFs.
 16. Judicial annex PDF (Times, no internal paths) is **orchestration**, not a CLI tool — keep case narrative out of this repo.
+17. **Âncoras antes da captura:** as tools recebem URL/número/nome já conhecido. Antes de
+    assumir como obter uma âncora, rode `tarrafa list` — havendo tool de descoberta, ela
+    tem prioridade. Não havendo, use a busca do ambiente (se existir) e trate o achado
+    como indício a confirmar; sem busca, peça a âncora ao usuário. Nunca deduza handle ou
+    URL a partir do nome. Isto descreve o CLI de hoje, não uma divisão permanente.
 
 ## Exit codes (common)
 
@@ -170,6 +176,14 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 | 2 | Bad args / missing dep / unknown tool |
 | 3–5 | IG-specific (nav / auth / login wall) |
 | 6 | Zero items |
+
+## Skill para outros hosts de IA
+
+Dentro deste repo, este `AGENTS.md` é o contrato. Fora dele, use `tarrafa skills install`:
+o template vive em `src/tarrafa/skills/tarrafa.md.tmpl` (versionado junto com o código) e é
+renderizado na instalação com o caminho real do executável, porque cada máquina tem um venv
+diferente. Ao mudar flags ou exit codes de uma tool, **atualize o template no mesmo commit** —
+ele é a única cópia dessas regras que roda fora daqui.
 
 ## Adding a tool
 

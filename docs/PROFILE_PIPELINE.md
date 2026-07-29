@@ -21,6 +21,10 @@ CASO/
 
 1. **Âncoras** — nome completo + handle e/ou cidade/função.
 2. **Web/IG** — bio, contagem, link na bio, reel relevante.
+   Os passos 1–2 **não têm tool** no CLI de hoje: confirme com `tarrafa list`; havendo
+   descoberta, ela tem prioridade. Não havendo, levante as âncoras com a busca do ambiente
+   e passe as URLs para `shot`/`page`/`ig`. Sem busca, peça ao usuário. Pular estes passos
+   e ir direto ao DJEN é o erro mais fácil de cometer aqui.
 3. **`tarrafa shot`** no perfil e no post/reel (path = `CASO/shots`).
 4. **`djen --papel parte --cpf`** quando houver CPF. Sem CPF, usar `--nome "Nome
    Completo"` e `--texto "handle"` (handles quase nunca saem no DJEN; o nome sim).

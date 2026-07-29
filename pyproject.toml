@@ -78,6 +78,9 @@ tarrafa = "tarrafa.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+tarrafa = ["skills/*.tmpl"]
+
 [tool.setuptools.dynamic]
 version = { attr = "tarrafa.__version__" }
 

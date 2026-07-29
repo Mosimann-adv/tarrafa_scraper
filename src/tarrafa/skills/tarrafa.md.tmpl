@@ -1,0 +1,231 @@
+---
+name: tarrafa
+description: >
+  Tarrafa — CLI de captura multi-fonte para inventário de material aberto e prova
+  documental. Tools: ig, page, site, feed, shot, video, album, dossier, cnpj, djen,
+  datajud, stj, pdf-extract, order-risk, doctor.
+  Use quando o pedido envolver: tarrafa, print/screenshot de página, salvar página como
+  prova, comentários do Instagram, DJEN, comunicações de advogado ou parte, Datajud,
+  inteiro teor do STJ, extrair texto de PDF de autos, consulta CNPJ, triagem de
+  chargeback de pedido e-commerce, ficha/dossiê HTML de perfil.
+  Material-only: captura e organiza, não classifica ofensas nem inventa biografia.
+  Não digita senhas e não automatiza login Facebook/OIDC.
+---
+
+# Tarrafa
+
+**Joga a rede. Puxa a prova.**
+
+Gerado por `tarrafa skills install` — versão {{TARRAFA_VERSION}}. Não edite à mão:
+rode o comando de novo para atualizar.
+
+## Como chamar
+
+Binário desta instalação:
+
+```text
+{{TARRAFA_BIN}}
+```
+
+Os exemplos abaixo já vêm prontos para {{TARRAFA_SHELL_LABEL}}.
+
+```{{TARRAFA_SHELL}}
+{{TARRAFA_CALL}} doctor
+{{TARRAFA_CALL}} list
+```
+
+{{TARRAFA_SHELL_NOTE}}
+
+Rode `doctor` antes de uma coleta relevante. Ele reporta dependências, Chromium,
+sessão salva e dependências opcionais ausentes.
+
+## Regra principal: o CLI é a ferramenta canônica
+
+**Sempre colete com o CLI `tarrafa`** (Playwright embutido). Não substitua por Playwright
+MCP, por automação de browser do host, nem por um scraper improvisado.
+
+O motivo é concreto: o CLI grava o envelope JSON no formato esperado, respeita os exit
+codes, reaproveita a sessão salva e escreve o arquivo no caminho pedido. Automação de
+browser genérica falha nas três coisas — trava se a extensão não conectar, a gravação de
+arquivo é frágil e a saída não tem o envelope.
+
+Ferramenta de browser do host serve para inspeção pontual, quando já está conectada.
+Nunca para coleta em massa.
+
+## Antes de capturar: de onde vem a âncora
+
+As tools recebem uma URL, um número ou um nome que você **já tem**. Perfil de pessoa
+depende de âncoras — handle, endereço do site, CPF, OAB, CNJ — e elas precisam vir de
+algum lugar. Resolva nesta ordem, checando o que existe em vez de assumir:
+
+**1. Pergunte ao próprio CLI.** Rode `{{TARRAFA_CALL}} list`. Se houver tool de busca ou
+descoberta, ela é o caminho preferido e o resto desta seção não se aplica. A lista é a
+autoridade; não decida pela memória de quais tools existiam.
+
+**2. Sem tool de descoberta, e havendo busca no seu ambiente**, levante as âncoras por
+ali e passe as URLs encontradas para `shot`, `page` ou `ig`. O que vem de busca é
+indício a confirmar, não fato: registre a origem e cruze com fonte oficial antes de
+afirmar. Convergência entre fontes independentes é o que separa perfil lastreado de
+perfil montado sobre homônimo.
+
+**3. Sem busca disponível**, peça as âncoras ao usuário. Não invente handle nem deduza
+URL a partir do nome.
+
+Isto descreve o estado atual do CLI, não uma regra de arquitetura — a divisão muda no dia
+em que a descoberta virar tool. Por isso o passo 1 existe: reveja sempre, não presuma.
+
+## Tools
+
+| Pedido | Comando |
+|--------|---------|
+| Uma página pública (texto/links/facts) | `page` |
+| Crawl shallow de site (mesmo host) | `site` |
+| RSS/Atom | `feed` |
+| Print de tela de alta qualidade | `shot` |
+| Vídeo: meta + frames (+ download) | `video` |
+| HTML de impressão a partir de shots/frames | `album` |
+| Ficha HTML de perfil | `dossier` |
+| Comentários IG + permalink `/c/` | `ig` |
+| CNPJ (API open CNPJá) | `cnpj` |
+| DJEN — advogado (`--oab`) ou parte (priorize `--cpf`) | `djen` |
+| Datajud capa/movimentos, por CNJ conhecido | `datajud` |
+| Inteiro teor STJ (SCON PDF; Cloudflare) | `stj` |
+| Texto + identity hints de PDFs de autos | `pdf-extract` |
+| Triagem chargeback e-commerce | `order-risk` |
+| Checar ambiente | `doctor` |
+
+```{{TARRAFA_SHELL}}
+{{TARRAFA_CALL}} page --url "URL" --out "SAIDA.json"
+{{TARRAFA_CALL}} site --url "URL" --out "SAIDA.json" --max-pages 15 --max-depth 2
+{{TARRAFA_CALL}} feed --url "FEED_URL" --out "SAIDA.json" --max-entries 20
+
+{{TARRAFA_CALL}} shot --url "URL" --out-dir "PASTA" --id ID --full-page --dpr 2
+{{TARRAFA_CALL}} album --dir "PASTA" --out "PASTA/album.html" --title "…" --kicker "Inventário visual"
+
+{{TARRAFA_CALL}} video --url "URL" --out-dir "PASTA" --id VID01 --frames 5
+
+{{TARRAFA_CALL}} cnpj --cnpj "00.000.000/0001-91" --out "PASTA/cnpj.json"
+{{TARRAFA_CALL}} datajud --cnj "0000000-00.0000.0.00.0000" --out "PASTA/datajud.json"
+{{TARRAFA_CALL}} pdf-extract --dir "PASTA/pdfs" --recursive --out "PASTA/pdf_extract.json"
+```
+
+Grave sempre no caminho que o usuário indicar (`--out` / `--out-dir`).
+
+## Flags globais
+
+Vêm **antes** do nome da tool:
+
+```{{TARRAFA_SHELL}}
+{{TARRAFA_CALL}} --timeout 60 --no-clobber page --url "URL" --out "SAIDA.json"
+```
+
+`-v` `--quiet` `--force` `--no-clobber` `--timeout SEC` `--out-dir DIR` `--workspace DIR` `--json-logs`
+
+Workspace é opcional (`tarrafa init DIR --name "…"`). As tools aceitam `--out` solto.
+
+## `--headed` e sessão salva
+
+`--headed` existe em **`shot`, `video`, `ig` e `stj`**. **`page` não aceita `--headed`** —
+para conteúdo que exige browser use `page --mode browser --storage-state …`, ou `shot`.
+
+Sessão salva ({{TARRAFA_STORAGE_LABEL}}) evita login wall. Para gravar uma sessão nova, o
+usuário faz login **nativo** na janela headed; nunca digite a senha por ele.
+
+## Instagram (`ig`)
+
+```{{TARRAFA_SHELL}}
+# amostra / smoke
+{{TARRAFA_CALL}} ig --url "URL_DO_POST" --out "PASTA/ig.json" {{TARRAFA_CONT}}
+  --storage-state "SESSAO.json" --max-comments 15
+
+# coleta profunda (pode demorar)
+{{TARRAFA_CALL}} ig --url "URL_DO_POST" --out "PASTA/ig.json" {{TARRAFA_CONT}}
+  --storage-state "SESSAO.json" --expand-replies --max-comments 500
+```
+
+Headed só se a sessão falhar ou cair em login wall (exit 5). Se aparecer
+password-reset ou fluxo do Facebook, aborte.
+
+Ao reportar: `count`, `public_comment_count`, `with_comment_id`, exit code e o caminho do
+JSON. Não afirme exaustividade quando a cobertura foi parcial.
+
+## DJEN (`djen`)
+
+- **Advogado** → `--oab` + `--uf` (com pós-filtro).
+- **Parte** → havendo CPF, `--papel parte --cpf` tem prioridade e faz conferência exata
+  local. Sem CPF, use `--nome` / `--texto` e trate o resultado como `identity_hints`.
+- Não funda processos por nome curto — homônimo é a falha mais comum aqui.
+- `--follow-datajud` encadeia o Datajud a partir dos CNJs encontrados.
+
+```{{TARRAFA_SHELL}}
+{{TARRAFA_CALL}} djen --oab 12345 --uf SP --max-items 100 --out "PASTA/djen.json"
+{{TARRAFA_CALL}} djen --papel parte --cpf "<CPF>" --max-items 50 --out "PASTA/djen.json"
+{{TARRAFA_CALL}} djen --papel parte --texto "Nome Completo" --follow-datajud {{TARRAFA_CONT}}
+  --datajud-out "PASTA/datajud.json" --out "PASTA/djen.json"
+```
+
+`datajud` sozinho só serve com CNJ já conhecido — o índice normalmente **não** tem nome
+de parte.
+
+## STJ (`stj`)
+
+O SCON fica atrás de Cloudflare. **Não contorne captcha.** Exit **5** = challenge/WAF.
+
+```{{TARRAFA_SHELL}}
+# 1. aquecer a sessão (janela visível)
+{{TARRAFA_CALL}} stj --warmup --headed --save-storage "STJ_SESSAO.json"
+
+# 2. coletar
+{{TARRAFA_CALL}} stj --num-registro 201600461292 --dt-publicacao 23/08/2019 {{TARRAFA_CONT}}
+  --storage-state "STJ_SESSAO.json" --out-dir "PASTA/stj_pdfs" --out "PASTA/stj.json" --extract
+```
+
+Alternativa: Chrome real com `chrome --remote-debugging-port=9222` e `stj --cdp http://127.0.0.1:9222`.
+Headless limpo não passa. Seeds: `--url`, `--num-registro` + `--dt-publicacao`, ou
+`--urls-file`. Reporte `meta.ok`, `meta.challenge`, os caminhos dos PDFs e o exit code.
+
+## `dossier` e `order-risk`
+
+`dossier` **apenas renderiza** o que você passar (avatar, meta, fatos, fontes, prints,
+lacunas). Não faz busca na web e não inventa biografia. Nunca embuta print de login wall.
+
+```{{TARRAFA_SHELL}}
+{{TARRAFA_CALL}} dossier --title "Nome" --out "PASTA/perfil.html" {{TARRAFA_CONT}}
+  --avatar "PASTA/foto.png" --meta "Campo: valor" {{TARRAFA_CONT}}
+  --fact "Achado com fonte citada" --source "Fonte | https://… | nota" {{TARRAFA_CONT}}
+  --shot "print1=PASTA/print.png::Legenda" --gap "Lacuna registrada honestamente"
+
+{{TARRAFA_CALL}} order-risk --store-url "https://loja.example" {{TARRAFA_CONT}}
+  --name "Nome" --cpf "000.000.000-00" --cep "00000-000" --city "Cidade" --state UF {{TARRAFA_CONT}}
+  --street "Rua" --number "100" --phone "(00) 90000-0000" --email "user@example.com" {{TARRAFA_CONT}}
+  --out-dir "PASTA" --html --shot-maps
+```
+
+## Envelope de saída
+
+`page` / `site` / `feed` retornam: `tool`, `version`, `collected_at`, `source`, `meta`,
+`count`, `items[]`, `errors[]`, `notes[]`.
+
+## Exit codes
+
+| Código | Significado |
+|--------|-------------|
+| 0 | OK |
+| 1 | Execução parcial: gravou artefatos, mas alguma coleta falhou |
+| 2 | Argumento inválido, dependência ausente ou tool desconhecida |
+| 3 | Falha de navegação |
+| 4 | Auth perigosa (`ig`) |
+| 5 | Login wall (`ig`) / challenge Cloudflare (`stj`) |
+| 6 | Zero itens |
+
+Sempre reporte contagens, caminhos gravados, erros e o exit code.
+
+## Limites
+
+- **Material-only**: capture e organize; não classifique ofensas.
+- Nunca digite senha; nunca automatize OIDC do Facebook ou reset de senha.
+- Não commite `storage_state.json` nem `.env`.
+- Projeto **experimental**, sob licença não comercial. Sites e APIs mudam; valide o
+  resultado antes de usar em peça ou prova.
+
+{{TARRAFA_REPO_SECTION}}

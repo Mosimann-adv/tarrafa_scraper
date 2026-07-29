@@ -4,6 +4,7 @@ tarrafa — multi-tool CLI
 
   tarrafa [global flags] <tool> [tool args]
   tarrafa init [dir]
+  tarrafa skills [list|install|show]
   tarrafa list | version | doctor
 """
 from __future__ import annotations
@@ -32,6 +33,7 @@ TOOLS = [
         "Triagem chargeback e-commerce (CPF/CEP/DJEN/loja) → JSON + HTML com imagens embutidas",
     ),
     ("doctor", "Check Python deps, Chromium, ffmpeg, yt-dlp, storage_state, MCP token"),
+    ("skills", "Instala a skill da Tarrafa nos hosts de IA (Claude, Grok) com caminhos resolvidos"),
     ("list", "List tools"),
     ("version", "Print version"),
 ]
@@ -117,6 +119,120 @@ def _cmd_init(argv: list[str]) -> int:
         print("  exists:", ", ".join(list(summary["skipped"])[:8]))
     print("  Tools still accept free --out / --out-dir; workspace is optional context.")
     return 0
+
+
+def _cmd_skills(argv: list[str]) -> int:
+    from tarrafa.core import skills as sk
+
+    ap = argparse.ArgumentParser(
+        prog="tarrafa skills",
+        description=(
+            "Instala a skill da Tarrafa nos hosts de IA desta máquina, "
+            "com os caminhos já resolvidos."
+        ),
+    )
+    ap.add_argument(
+        "action",
+        nargs="?",
+        default="list",
+        choices=["list", "install", "show"],
+        help="list: estado por host (padrão) · install: grava · show: imprime o conteúdo",
+    )
+    ap.add_argument(
+        "--host",
+        action="append",
+        default=None,
+        help="Limita a um host (claude, grok). Repetível. Padrão: todos os detectados",
+    )
+    ap.add_argument(
+        "--dest",
+        default=None,
+        help="Pasta raiz de skills adicional (grava DEST/tarrafa/SKILL.md)",
+    )
+    ap.add_argument(
+        "--shell",
+        default="auto",
+        choices=["auto", "powershell", "bash"],
+        help="Sintaxe dos exemplos (padrão: auto, pelo sistema)",
+    )
+    ap.add_argument("--force", action="store_true", help="Sobrescreve arquivo editado à mão")
+    ap.add_argument("--dry-run", action="store_true", help="Mostra o que faria, sem gravar")
+    ap.add_argument("--all", action="store_true", help="Inclui hosts não detectados")
+    args = ap.parse_args(argv)
+
+    if args.action == "show":
+        print(sk.render(shell=args.shell))
+        return 0
+
+    hosts = sk.detect_hosts()
+    if args.host:
+        wanted = {h.lower() for h in args.host}
+        known = {h.key for h in hosts}
+        unknown = wanted - known
+        if unknown:
+            print(
+                f"error: host desconhecido: {', '.join(sorted(unknown))} "
+                f"(conhecidos: {', '.join(sorted(known))})",
+                file=sys.stderr,
+            )
+            return 2
+        hosts = [h for h in hosts if h.key in wanted]
+
+    if args.action == "list":
+        print("Tarrafa skills\n")
+        for row in sk.status(shell=args.shell):
+            if row.get("state") == "error":
+                print(f"  [ERRO] {row['detail']}")
+                continue
+            mark = {
+                "current": "OK  ",
+                "stale": "VELHA",
+                "missing": "----",
+                "manual": "MANUAL",
+            }[row["state"]]
+            seen = "detectado" if row["detected"] else "não detectado"
+            print(f"  [{mark}] {row['label']} ({seen}): {row['path']}")
+        print(f"\nBinário: {sk.resolve_bin()}")
+        print("Instalar/atualizar: tarrafa skills install")
+        return 0
+
+    # --dest sozinho significa "só este destino"; combinar com --host/--all para somar.
+    dest_only = bool(args.dest) and not args.host and not args.all
+    targets = [] if dest_only else [h for h in hosts if h.detected or args.all]
+    if args.dest:
+        dest_root = Path(args.dest).expanduser().resolve()
+        targets.append(
+            sk.Host(
+                key="dest",
+                label="destino manual",
+                root=dest_root,
+                target=dest_root / sk.SKILL_DIRNAME / sk.SKILL_FILENAME,
+            )
+        )
+
+    if not targets:
+        print("Nenhum host de IA detectado nesta máquina.")
+        print("Use --all para instalar mesmo assim, ou --dest DIR para uma pasta específica.")
+        print("Hosts que leem o AGENTS.md do repo (Codex, entre outros) não precisam de instalação.")
+        return 0
+
+    results = sk.install(targets, shell=args.shell, force=args.force, dry_run=args.dry_run)
+    prefix = "[dry-run] " if args.dry_run else ""
+    for entry in results:
+        print(f"  {prefix}{entry['action']:9} {entry['label']}: {entry['path']}")
+        if entry.get("reason"):
+            print(f"            {entry['reason']}")
+
+    skipped = [e for e in results if e["action"] == "skipped"]
+    changed = [e for e in results if e["action"] in ("created", "updated")]
+    print()
+    if args.dry_run:
+        print(f"dry-run: {len(changed)} arquivo(s) seriam gravados.")
+    else:
+        print(f"{len(changed)} arquivo(s) gravados.")
+    if changed and not args.dry_run:
+        print("Reinicie a sessão do host para ele carregar a skill.")
+    return 1 if skipped else 0
 
 
 def _dispatch_tool(mod_path: str, main_name: str, argv: list[str]) -> int:
@@ -245,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_doctor(rest)
         if tool == "init":
             return _cmd_init(rest)
+        if tool == "skills":
+            return _cmd_skills(rest)
 
         dispatch = {
             "ig": "tarrafa.tools.ig.scraper",

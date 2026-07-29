@@ -40,6 +40,7 @@ _HINTS: dict[str, str] = {
     "storage_state.json": "-> tarrafa ig … --save-storage ./storage_state.json (optional, IG only)",
     "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "-> put token in ~/.tarrafa/.env or <repo>/.env (optional)",
     "tomllib": "-> Python ≥ 3.11 or pip install tomli  (for tarrafa.toml)",
+    "skills": "-> tarrafa skills install  (ensina a Tarrafa aos hosts de IA desta máquina)",
 }
 
 
@@ -135,6 +136,26 @@ def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
         cands = " | ".join(tok["candidates"])
         detail = f"absent (optional; put PLAYWRIGHT_MCP_EXTENSION_TOKEN in {cands})"
     add("PLAYWRIGHT_MCP_EXTENSION_TOKEN", bool(tok["present"]), detail, required=False)
+
+    # Skill de IA instalada nos hosts detectados (optional)
+    try:
+        from tarrafa.core.skills import status as skills_status
+
+        rows = [r for r in skills_status() if r.get("detected")]
+        if not rows:
+            add("skills", True, "nenhum host de IA detectado (opcional)", required=False)
+        else:
+            labels = {
+                "current": "atualizada",
+                "stale": "desatualizada",
+                "missing": "ausente",
+                "manual": "editada à mão",
+            }
+            parts = [f"{r['label']}: {labels.get(r['state'], r['state'])}" for r in rows]
+            ok = all(r["state"] in ("current", "manual") for r in rows)
+            add("skills", ok, " · ".join(parts), required=False)
+    except Exception as e:
+        add("skills", False, f"erro ao checar: {e}", required=False)
 
     # Workspace (optional)
     from tarrafa.core.config import find_workspace_root

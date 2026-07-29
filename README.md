@@ -196,6 +196,50 @@ diretamente os programas instalados dentro de `.venv`.
 
 ---
 
+## Ensine a Tarrafa à sua IA
+
+Dentro desta pasta, a IA aprende a Tarrafa lendo o `AGENTS.md`. **Fora dela**, não —
+e é aí que a maioria dos erros acontece: a IA não encontra o comando `tarrafa`, tenta
+adivinhar e acaba escrevendo o próprio scraper.
+
+O comando abaixo resolve isso. Ele grava um arquivo de instruções nos assistentes que
+encontrar instalados, já com o caminho exato da Tarrafa **nesta** máquina:
+
+```powershell
+.\.venv\Scripts\tarrafa.exe skills install
+```
+
+Antes de gravar, veja o que ele faria:
+
+```powershell
+.\.venv\Scripts\tarrafa.exe skills list
+.\.venv\Scripts\tarrafa.exe skills install --dry-run
+```
+
+| Comando | O que faz |
+|---------|-----------|
+| `tarrafa skills list` | Mostra cada host detectado e se a skill está atualizada |
+| `tarrafa skills install` | Grava nos hosts detectados |
+| `tarrafa skills install --dry-run` | Mostra o que gravaria, sem gravar |
+| `tarrafa skills install --dest DIR` | Grava numa pasta de skills específica |
+| `tarrafa skills show` | Imprime o conteúdo, para você colar onde quiser |
+
+Hoje ele reconhece **Claude Code** e **Grok CLI**, que usam o mesmo formato de skill.
+Assistentes que leem `AGENTS.md` diretamente, como o Codex, já funcionam dentro do
+repositório sem instalação nenhuma.
+
+Três coisas que valem saber:
+
+1. **O comando escreve fora do repositório**, na pasta de configuração do assistente.
+   Por isso ele é um passo separado e explícito — a instalação da Tarrafa não mexe
+   nessas pastas sozinha.
+2. **Ele não apaga skill que você escreveu à mão.** Se o arquivo existir e não tiver
+   sido gerado pela Tarrafa, o comando pula e avisa. Use `--force` para substituir.
+3. **Reinstale depois de atualizar a Tarrafa.** A skill descreve as flags da versão que
+   a gerou; `tarrafa doctor` avisa quando ela fica para trás.
+
+---
+
 ## Primeiro uso com a IA
 
 Abra a IA dentro da pasta `tarrafa_scraper` e envie um dos prompts abaixo.
