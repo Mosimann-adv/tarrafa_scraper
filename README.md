@@ -434,7 +434,7 @@ Configuração em camadas: flags → env (`TARRAFA_TIMEOUT`, …) →
 | Python 3.10+, dependências e Chromium | Computador de quem usa |
 | Sessão Instagram (`storage_state.json`) | Login nativo de cada usuário; nunca compartilhe o arquivo |
 | `DATAJUD_API_KEY` | Opcional; se usada, deve ficar no `.env` local |
-| `BRAVE_SEARCH_API_KEY` ou `SEARXNG_URL` | Ao menos um para descoberta com `tarrafa search` |
+| `BRAVE_SEARCH_API_KEY` ou `SEARXNG_URL` | Opcionais; apenas para busca executada dentro do CLI |
 | Token Playwright MCP | Opcional (só host/IDE com extension); coletas usam o **CLI** + `storage_state` |
 
 **Não** digite senha no CLI. **Não** automatize Facebook OIDC. Os arquivos são
@@ -522,23 +522,42 @@ pytest -q -m integration  # rede e Chromium
 
 ### Descoberta web
 
-```bash
-# uma consulta
-tarrafa search --query '"Nome Completo" cidade profissão' \
-  --urls-out ./out/urls.txt --out ./out/search.json
+A descoberta é feita, por padrão, com as ferramentas disponíveis no ambiente de quem
+orquestra. Registre consultas, resultados e descartes em um repasse:
 
-# plano preparado por uma pessoa ou IA; uma consulta por linha
-tarrafa search --queries-file ./consultas.txt --max-results 30 \
+```json
+{
+  "agent": "quem buscou",
+  "note": "URLs descartadas e motivos, ou declaração de que não houve descartes",
+  "queries": [
+    {
+      "query": "\"Nome Completo\" cidade profissão",
+      "results": [{"url": "https://example.com/perfil", "title": "Perfil"}]
+    }
+  ]
+}
+```
+
+```bash
+# caminho padrão: registra, canoniza e deduplica a descoberta externa
+tarrafa search --from-agent ./repasse.json \
   --urls-out ./out/urls.txt --out ./out/search.json
 
 # captura determinística dos candidatos encontrados
 tarrafa page --urls-file ./out/urls.txt --out ./out/pages/
+
+# opcional: busca dentro do CLI para quem já tem Brave ou SearXNG
+tarrafa search --query '"Nome Completo" cidade profissão' \
+  --urls-out ./out/urls.txt --out ./out/search.json
+
+tarrafa search --queries-file ./consultas.txt --max-results 30 \
+  --urls-out ./out/urls.txt --out ./out/search.json
 ```
 
-Configure `BRAVE_SEARCH_API_KEY` ou `SEARXNG_URL` no `.env`. Resultados são
-candidatos, não confirmação de identidade. CPF, e-mail e telefone são bloqueados
-por padrão; `--allow-sensitive-query` exige decisão explícita. A IA é opcional:
-`search` não chama modelo nem exige credencial de qualquer provedor de IA.
+Brave e SearXNG não são pré-requisitos e não devem ser sugeridos por padrão. Resultados
+são candidatos, não confirmação de identidade. CPF, e-mail e telefone são bloqueados
+quando a busca ocorre dentro do CLI; `--allow-sensitive-query` exige decisão explícita.
+A IA é opcional: `search` não chama modelo nem exige credencial de provedor de IA.
 
 ### Página
 

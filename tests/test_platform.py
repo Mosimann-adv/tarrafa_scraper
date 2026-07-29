@@ -9,6 +9,7 @@ import pytest
 
 from tarrafa.cli import main as cli_main
 from tarrafa.core.config import load_config
+from tarrafa.core.doctor import _HINTS
 from tarrafa.core.run import finish_run, sanitize_argv, start_run
 from tarrafa.core.workspace import init_workspace
 
@@ -181,3 +182,10 @@ def test_list_includes_init(capsys):
     output = capsys.readouterr().out
     assert "init" in output
     assert "search" in output
+
+
+def test_doctor_does_not_treat_search_provider_as_prerequisite():
+    hint = _HINTS["search-provider"]
+    assert "--from-agent" in hint
+    assert "opcional" in hint
+    assert "configure BRAVE_SEARCH_API_KEY" not in hint

@@ -152,7 +152,7 @@ def test_searxng_provider_parses_results():
     assert page.items[0]["engine"] == ["brave", "duckduckgo"]
 
 
-def test_resolve_provider_auto_requires_configuration(monkeypatch):
+def test_resolve_provider_auto_without_config_points_to_handoff(monkeypatch):
     for name in (
         "BRAVE_SEARCH_API_KEY",
         "TARRAFA_BRAVE_SEARCH_API_KEY",
@@ -163,7 +163,9 @@ def test_resolve_provider_auto_requires_configuration(monkeypatch):
     try:
         resolve_provider("auto")
     except SearchProviderConfigurationError as exc:
-        assert "Nenhum provedor" in str(exc)
+        message = str(exc)
+        assert "normal, não um defeito" in message
+        assert "--from-agent" in message
     else:
         raise AssertionError("deveria exigir configuração")
 
@@ -264,7 +266,7 @@ def test_from_agent_records_provenance_without_provider(tmp_path):
         tmp_path,
         {
             "agent": "assistente X",
-            "note": "busca manual",
+            "note": "nenhum resultado descartado",
             "queries": [
                 {
                     "query": "\"Nome Completo\" cidade",
@@ -282,7 +284,7 @@ def test_from_agent_records_provenance_without_provider(tmp_path):
     envelope = json.loads(out.read_text(encoding="utf-8"))
     assert envelope["source"]["provider"] == "agent:assistente X"
     assert envelope["meta"]["requests"] == 0
-    assert envelope["meta"]["agent_note"] == "busca manual"
+    assert envelope["meta"]["agent_note"] == "nenhum resultado descartado"
     assert envelope["count"] == 2
     assert "não executou a busca" in envelope["notes"][0]
 
@@ -293,6 +295,7 @@ def test_from_agent_canonicalizes_and_deduplicates(tmp_path):
         tmp_path,
         {
             "agent": "assistente X",
+            "note": "nenhum resultado descartado",
             "queries": [
                 {
                     "query": "consulta",
@@ -318,6 +321,7 @@ def test_from_agent_discards_invalid_url_as_partial(tmp_path):
         tmp_path,
         {
             "agent": "assistente X",
+            "note": "URL inválida registrada no envelope",
             "queries": [
                 {"query": "c", "results": ["https://exemplo.test/ok", "nao-e-url"]}
             ],
@@ -338,6 +342,7 @@ def test_from_agent_merges_repeated_query(tmp_path):
         tmp_path,
         {
             "agent": "assistente X",
+            "note": "nenhum resultado descartado",
             "queries": [
                 {"query": "mesma", "results": ["https://exemplo.test/1"]},
                 {"query": "mesma", "results": ["https://exemplo.test/2"]},
@@ -355,10 +360,27 @@ def test_from_agent_merges_repeated_query(tmp_path):
 
 
 def test_from_agent_requires_agent_field(tmp_path):
-    handoff = _handoff(tmp_path, {"queries": [{"query": "c", "results": []}]})
+    handoff = _handoff(
+        tmp_path,
+        {
+            "note": "nenhum resultado descartado",
+            "queries": [{"query": "c", "results": []}],
+        },
+    )
     out = tmp_path / "search.json"
     assert main(["--from-agent", str(handoff), "--out", str(out)]) == 2
     assert not out.exists()
+
+
+def test_from_agent_requires_discard_note(tmp_path, capsys):
+    handoff = _handoff(
+        tmp_path,
+        {"agent": "assistente X", "queries": [{"query": "c", "results": []}]},
+    )
+    out = tmp_path / "search.json"
+    assert main(["--from-agent", str(handoff), "--out", str(out)]) == 2
+    assert not out.exists()
+    assert "campo 'note' obrigatório" in capsys.readouterr().err
 
 
 def test_from_agent_rejects_malformed_json(tmp_path):
@@ -371,7 +393,11 @@ def test_from_agent_rejects_malformed_json(tmp_path):
 def test_from_agent_conflicts_with_query(tmp_path):
     handoff = _handoff(
         tmp_path,
-        {"agent": "x", "queries": [{"query": "c", "results": []}]},
+        {
+            "agent": "x",
+            "note": "nenhum resultado descartado",
+            "queries": [{"query": "c", "results": []}],
+        },
     )
     out = tmp_path / "search.json"
     code = main(["--from-agent", str(handoff), "--query", "outra", "--out", str(out)])
@@ -384,6 +410,7 @@ def test_from_agent_masks_sensitive_query_without_blocking(tmp_path):
         tmp_path,
         {
             "agent": "assistente X",
+            "note": "nenhum resultado descartado",
             "queries": [
                 {
                     "query": "fulano 123.456.789-09",
@@ -408,6 +435,7 @@ def test_from_agent_urls_out_feeds_page(tmp_path):
         tmp_path,
         {
             "agent": "assistente X",
+            "note": "nenhum resultado descartado",
             "queries": [
                 {"query": "c", "results": ["https://exemplo.test/a", "https://exemplo.test/b"]}
             ],
@@ -420,3 +448,35 @@ def test_from_agent_urls_out_feeds_page(tmp_path):
         "https://exemplo.test/a",
         "https://exemplo.test/b",
     ]
+
+
+def test_from_agent_reports_received_processed_and_truncated_results(tmp_path):
+    handoff = _handoff(
+        tmp_path,
+        {
+            "agent": "assistente X",
+            "note": "terceiro resultado não processado pelo limite",
+            "queries": [
+                {
+                    "query": "c",
+                    "results": [
+                        "https://exemplo.test/a",
+                        "https://exemplo.test/b",
+                        "https://exemplo.test/c",
+                    ],
+                }
+            ],
+        },
+    )
+    out = tmp_path / "search.json"
+    assert main(
+        ["--from-agent", str(handoff), "--max-results", "1", "--out", str(out)]
+    ) == 0
+
+    envelope = json.loads(out.read_text(encoding="utf-8"))
+    assert envelope["count"] == 1
+    assert envelope["meta"]["raw_results"] == 3
+    assert envelope["meta"]["received_results"] == 3
+    assert envelope["meta"]["processed_results"] == 1
+    assert envelope["meta"]["truncated_results"] == 2
+    assert envelope["meta"]["duplicates_removed"] == 0

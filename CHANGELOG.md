@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Fixed
+- **`tarrafa search --from-agent`** — exige declaração sobre descartes no `note` e
+  separa nos metadados resultados recebidos, processados e truncados por
+  `--max-results`; README, `.env.example` e `doctor` passam a tratar Brave/SearXNG
+  como opcionais, em coerência com a skill.
 - **`tarrafa order-risk`** — endurece as bandas e a sinalização de execução parcial:
   timeout de coleta não vira risco alto, identidade baixa exige âncora DJEN no CPF,
   logradouro usa comparação mais estrita e falhas retornam exit code `1`.

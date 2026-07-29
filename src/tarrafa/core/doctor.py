@@ -42,7 +42,7 @@ _HINTS: dict[str, str] = {
     "tomllib": "-> Python ≥ 3.11 or pip install tomli  (for tarrafa.toml)",
     "skills": "-> tarrafa skills install  (ensina a Tarrafa aos hosts de IA desta máquina)",
     "search-provider": (
-        "-> configure BRAVE_SEARCH_API_KEY ou SEARXNG_URL em ~/.tarrafa/.env ou <repo>/.env"
+        "-> normal: use `tarrafa search --from-agent`; provedor próprio é opcional"
     ),
 }
 
@@ -140,7 +140,7 @@ def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
         detail = f"absent (optional; put PLAYWRIGHT_MCP_EXTENSION_TOKEN in {cands})"
     add("PLAYWRIGHT_MCP_EXTENSION_TOKEN", bool(tok["present"]), detail, required=False)
 
-    # Descoberta web (opcional): ao menos um provedor configurado.
+    # Provedor próprio de busca é opcional; descoberta externa continua disponível.
     import os
 
     brave_search = bool(
@@ -156,7 +156,9 @@ def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
     add(
         "search-provider",
         bool(configured),
-        ", ".join(configured) if configured else "nenhum provedor configurado",
+        ", ".join(configured)
+        if configured
+        else "não configurado (normal; registre descoberta externa com --from-agent)",
         required=False,
     )
 

@@ -190,6 +190,18 @@ def test_provider_path_stays_documented_but_optional():
     assert "Provedor próprio é opcional" in section
 
 
+def test_public_docs_keep_search_providers_optional():
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    env_example = (root / ".env.example").read_text(encoding="utf-8")
+
+    assert "--from-agent" in readme
+    assert "Opcionais; apenas para busca executada dentro do CLI" in readme
+    assert "Ao menos um para descoberta" not in readme
+    assert "Provedores opcionais" in env_example
+    assert "Configure ao menos um provedor" not in env_example
+
+
 def test_skill_documents_verified_flag_behaviour():
     """page não define --headed; a skill não pode sugerir o contrário."""
     text = skills.render(shell="bash")
@@ -206,6 +218,7 @@ def test_skill_tells_ai_to_search_instead_of_asking_for_setup():
     assert "Busque você mesmo" in secao
     assert "não peça ao usuário" in secao.lower()
     assert "--from-agent" in secao
+    assert "URLs descartadas e motivos" in secao
     assert "opcional" in secao
 
 

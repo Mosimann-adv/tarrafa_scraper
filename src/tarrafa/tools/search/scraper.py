@@ -174,6 +174,7 @@ def read_agent_handoff(path: Path) -> dict[str, Any]:
     Formato mínimo::
 
         {"agent": "quem buscou",
+         "note": "descartes e motivos, ou declaração de que não houve descartes",
          "queries": [{"query": "texto", "results": [{"url": "https://…"}]}]}
     """
     import json
@@ -191,6 +192,12 @@ def read_agent_handoff(path: Path) -> dict[str, Any]:
     agent = str(payload.get("agent") or "").strip()
     if not agent:
         raise AgentHandoffError("campo 'agent' obrigatório: registre quem fez a busca")
+    note = str(payload.get("note") or "").strip()
+    if not note:
+        raise AgentHandoffError(
+            "campo 'note' obrigatório: registre URLs descartadas e motivos, "
+            "ou declare que não houve descartes"
+        )
 
     raw_queries = payload.get("queries")
     if not isinstance(raw_queries, list) or not raw_queries:
@@ -230,7 +237,7 @@ def read_agent_handoff(path: Path) -> dict[str, Any]:
 
     return {
         "agent": agent,
-        "note": str(payload.get("note") or "").strip(),
+        "note": note,
         "blocks": list(merged.values()),
     }
 
@@ -249,27 +256,30 @@ def collect_from_agent(
     provider_name = f"agent:{handoff['agent']}"
     candidates: dict[str, dict[str, Any]] = {}
     errors: list[str] = []
-    raw_results = 0
+    received_results = sum(len(block["results"]) for block in handoff["blocks"])
+    processed_results = 0
+    truncated_results = 0
     discarded = 0
 
     for query_record, block in zip(query_records, handoff["blocks"]):
         query_id = str(query_record["id"])
         accepted = 0
         for provider_rank, raw in enumerate(block["results"], start=1):
-            raw_results += 1
             if accepted >= max_results:
+                truncated_results += len(block["results"]) - (provider_rank - 1)
                 break
+            processed_results += 1
             canonical = canonicalize_url(str(raw.get("url") or ""))
             if not canonical:
                 discarded += 1
                 errors.append(f"{query_id}: URL inválida descartada na posição {provider_rank}")
                 continue
+            accepted += 1
             discovery = {"query_id": query_id, "provider_rank": provider_rank, "page": 1}
             if canonical in candidates:
                 candidates[canonical]["discovered_by"].append(discovery)
                 continue
             candidates[canonical] = _new_candidate(raw, canonical, provider_name, discovery)
-            accepted += 1
 
     items = _rank_candidates(candidates)
     return {
@@ -281,9 +291,12 @@ def collect_from_agent(
             "agent_note": handoff["note"] or None,
             "queries": len(query_records),
             "requests": 0,
-            "raw_results": raw_results,
+            "raw_results": received_results,
+            "received_results": received_results,
+            "processed_results": processed_results,
+            "truncated_results": truncated_results,
             "deduplicated_results": len(items),
-            "duplicates_removed": max(0, raw_results - discarded - len(items)),
+            "duplicates_removed": max(0, processed_results - discarded - len(items)),
             "discarded_invalid_urls": discarded,
             "max_results_per_query": max_results,
         },
@@ -390,7 +403,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="ARQUIVO",
         help=(
-            "Registra descoberta feita fora do CLI (JSON com 'agent' e 'queries'). "
+            "Registra descoberta feita fora do CLI (JSON com 'agent', 'note' e 'queries'). "
             "Não consulta provedor: só deduplica, canoniza e grava a proveniência"
         ),
     )
