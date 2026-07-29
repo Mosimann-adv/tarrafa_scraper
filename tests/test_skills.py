@@ -82,13 +82,33 @@ def test_install_updates_its_own_stale_file(tmp_path):
     host = _host(tmp_path)
     host.target.parent.mkdir(parents=True)
     host.target.write_text(
-        "Gerado por `tarrafa skills install` — versão 0.0.1\nconteúdo velho\n",
+        f"{skills.GENERATED_MARKER}\nversão 0.0.1\nconteúdo velho\n",
         encoding="utf-8",
     )
 
     result = skills.install([host], shell="bash")
     assert result[0]["action"] == "updated"
     assert "conteúdo velho" not in host.target.read_text(encoding="utf-8")
+
+
+def test_mentioning_the_command_does_not_mark_a_file_as_generated(tmp_path):
+    """Skill escrita à mão pode citar `tarrafa skills install` sem virar sobrescrevível."""
+    host = _host(tmp_path)
+    host.target.parent.mkdir(parents=True)
+    original = "Minha skill.\nPara atualizar rode `tarrafa skills install`.\n"
+    host.target.write_text(original, encoding="utf-8")
+
+    result = skills.install([host], shell="bash")
+    assert result[0]["action"] == "skipped"
+    assert host.target.read_text(encoding="utf-8") == original
+
+
+def test_generated_output_carries_the_marker():
+    """O marcador vem depois do frontmatter: `---` precisa abrir o arquivo."""
+    text = skills.render(shell="bash")
+    assert text.startswith("---")
+    assert skills.GENERATED_MARKER in text
+    assert skills._is_generated(text)
 
 
 def test_install_preserves_handwritten_file(tmp_path):

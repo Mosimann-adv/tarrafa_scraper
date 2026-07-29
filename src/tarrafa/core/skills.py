@@ -19,6 +19,11 @@ TEMPLATE_RESOURCE = "skills/tarrafa.md.tmpl"
 SKILL_FILENAME = "SKILL.md"
 SKILL_DIRNAME = "tarrafa"
 
+# Marcador de arquivo gerado. Precisa ser inequívoco: só sobrescrevemos o que a
+# própria Tarrafa escreveu, e uma skill escrita à mão pode perfeitamente citar o
+# comando `tarrafa skills install` no corpo do texto sem ser gerada por ele.
+GENERATED_MARKER = "<!-- tarrafa-skill:generated -->"
+
 # Hosts que usam o formato "pasta de skills com SKILL.md" (frontmatter + markdown).
 # Cada entrada: (chave, rótulo, variável de ambiente que sobrepõe o home, home padrão)
 _HOST_SPECS: tuple[tuple[str, str, str | None, str], ...] = (
@@ -230,7 +235,7 @@ def _read(path: Path) -> str | None:
 
 
 def _is_generated(text: str) -> bool:
-    return "tarrafa skills install" in text
+    return GENERATED_MARKER in text
 
 
 def status(*, shell: str = "auto") -> list[dict[str, Any]]:
