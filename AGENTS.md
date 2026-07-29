@@ -169,10 +169,15 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 14. **IG prints e comentários:** `tarrafa shot` / `tarrafa ig` no path do caso. Não depender de MCP para gravar PNG/JSON. Never embed login-wall shots in `dossier`.
 15. **CPF vs CNPJ mask:** CNPJá `***ABCDEF**` ≈ CPF digits 4–9. Do **not** attach a company QSA to the person if the mask does not match the CPF from court PDFs.
 16. Judicial annex PDF (Times, no internal paths) is **orchestration**, not a CLI tool — keep case narrative out of this repo.
-17. `search` só descobre candidatos; não confirma identidade. IA pode sugerir consultas e
-    prioridades, inclusive por `--queries-file`, mas execução, deduplicação, proveniência
-    e captura devem permanecer no CLI. Consultas com CPF/e-mail/telefone são bloqueadas
-    sem `--allow-sensitive-query`.
+17. `search` só descobre candidatos; não confirma identidade. Consultas com
+    CPF/e-mail/telefone são bloqueadas sem `--allow-sensitive-query`.
+18. **Descoberta é trabalho de quem orquestra.** Sem `BRAVE_SEARCH_API_KEY` nem
+    `SEARXNG_URL` — o caso da maioria das instalações — **busque com as ferramentas do seu
+    ambiente** e registre com `tarrafa search --from-agent`, incluindo na `note` o que foi
+    descartado e por quê. Não peça ao usuário para configurar provedor: é opcional, não
+    pré-requisito. Nunca invente handle, URL ou resultado para preencher o repasse; sem
+    meio de buscar, peça a âncora ao usuário. Achado de busca é candidato a confirmar.
+
 ## Exit codes (common)
 
 | Code | Meaning |

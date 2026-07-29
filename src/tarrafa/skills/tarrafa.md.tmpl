@@ -55,31 +55,24 @@ arquivo é frágil e a saída não tem o envelope.
 Ferramenta de browser do host serve para inspeção pontual, quando já está conectada.
 Nunca para coleta em massa.
 
-## Antes de capturar: descoberta
+## Antes de capturar: a descoberta é sua
 
-Use `search` para encontrar URLs candidatas antes de `page`, `site`, `shot` ou `ig`.
-A IA pode ajudar a formular consultas, combinar nome/cidade/função e ordenar prioridades,
-mas não substitui a execução do CLI: busca, deduplicação, proveniência e arquivos ficam
-sob responsabilidade da Tarrafa. `search` não chama modelo nem exige credencial de IA.
+As tools recebem URL, número ou nome que você **já tem**. Perfil de pessoa começa por
+âncoras — handle, site, CPF, OAB, CNJ — e achá-las é **trabalho seu, agora**.
 
-```{{TARRAFA_SHELL}}
-{{TARRAFA_CALL}} search --query '"Nome Completo" cidade profissão' {{TARRAFA_CONT}}
-  --urls-out "PASTA/urls.txt" --out "PASTA/search.json"
+**Busque você mesmo, com as ferramentas do seu ambiente.** Não peça ao usuário para
+configurar provedor, não pare para avisar que falta chave, não devolva "não consigo
+buscar". A esmagadora maioria das instalações não tem Brave nem SearXNG, e isso é o
+esperado, não um defeito a ser reportado.
 
-# uma IA ou pessoa pode preparar uma consulta por linha
-{{TARRAFA_CALL}} search --queries-file "PASTA/consultas.txt" {{TARRAFA_CONT}}
-  --urls-out "PASTA/urls.txt" --out "PASTA/search.json"
+Faça, nesta ordem:
 
-{{TARRAFA_CALL}} page --urls-file "PASTA/urls.txt" --out "PASTA/pages"
-```
+**1. Levante as âncoras.** Combine nome completo com cidade, profissão, instituição,
+handle. Varie as consultas: nome entre aspas, nome mais função, handle isolado. Abra o
+que parecer relevante e leia — descobrir o site profissional costuma revelar registro
+profissional, formação e vínculo que nenhuma outra fonte entrega.
 
-Resultado de busca é candidato, não fato. Cruze fontes e confirme identidade antes de
-afirmar. `search` bloqueia CPF, e-mail e telefone por padrão; só use
-`--allow-sensitive-query` quando o envio ao provedor externo tiver sido autorizado.
-
-**Sem Brave nem SearXNG configurado**, informe a lacuna. Se ainda assim você buscar pelo
-seu próprio ambiente, **registre o que encontrou** com `--from-agent`, para a origem das
-âncoras não ficar só no chat:
+**2. Registre o que encontrou**, para a origem das âncoras não morrer no chat:
 
 ```{{TARRAFA_SHELL}}
 {{TARRAFA_CALL}} search --from-agent "PASTA/repasse.json" {{TARRAFA_CONT}}
@@ -93,9 +86,30 @@ seu próprio ambiente, **registre o que encontrou** com `--from-agent`, para a o
               "results": [{"url": "https://…", "title": "…", "snippet": "…"}]}]}
 ```
 
+Inclua **o que você descartou e por quê** na `note`. Descarte silencioso é lacuna.
+
+**3. Capture com o CLI.** O `urls.txt` alimenta o resto direto:
+
+```{{TARRAFA_SHELL}}
+{{TARRAFA_CALL}} page --urls-file "PASTA/urls.txt" --out "PASTA/pages"
+{{TARRAFA_CALL}} shot --url "URL_DO_PERFIL" --out-dir "PASTA/shots" --id ig_perfil --dpr 2
+```
+
 A Tarrafa não finge ter buscado: o envelope marca `provider: agent:<nome>`,
-`requests: 0` e uma nota dizendo que a busca ocorreu fora do CLI. Ela deduplica,
-canoniza e ranqueia como sempre. Nunca invente handle nem URL para preencher o arquivo.
+`requests: 0` e uma nota registrando que a busca ocorreu fora do CLI. Ela deduplica,
+canoniza e ranqueia como sempre.
+
+**Nunca invente handle, URL ou resultado para preencher o arquivo.** Registrar busca que
+não aconteceu é pior que não registrar nada. Se você não tem como buscar no seu ambiente,
+aí sim diga isso ao usuário e peça as âncoras.
+
+Resultado de busca é **candidato, não fato**. Cruze fontes independentes antes de afirmar
+identidade: nome comum devolve homônimo com facilidade, e atribuir processo à pessoa
+errada é a falha mais cara desta ferramenta.
+
+**Provedor próprio é opcional.** Quem tiver `BRAVE_SEARCH_API_KEY` ou `SEARXNG_URL` pode
+buscar dentro do CLI com `--query` e `--queries-file`, ganhando cota e velocidade. Não
+sugira essa configuração por conta própria: ela não é pré-requisito de nada.
 
 ## Tools
 

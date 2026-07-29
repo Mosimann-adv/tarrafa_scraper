@@ -293,9 +293,15 @@ def resolve_provider(
         elif sx_url:
             selected = "searxng"
         else:
+            # Provedor é o caminho opcional, não o pré-requisito: a maioria das
+            # instalações não tem chave nem instância, e a descoberta continua
+            # possível por fora, desde que registrada com --from-agent.
             raise SearchProviderConfigurationError(
-                "Nenhum provedor configurado. Defina BRAVE_SEARCH_API_KEY "
-                "ou SEARXNG_URL, ou escolha --provider com a configuração correspondente."
+                "Nenhum provedor configurado — isto é o normal, não um defeito. "
+                "Faça a descoberta com as ferramentas que você já tem e registre o "
+                "resultado com `tarrafa search --from-agent ARQUIVO.json`, que grava "
+                "consulta, origem e proveniência. Provedor próprio (BRAVE_SEARCH_API_KEY "
+                "ou SEARXNG_URL) é opcional, para quem quiser buscar dentro do CLI."
             )
     if selected == "brave":
         return BraveSearchProvider(brave_key, timeout=timeout)

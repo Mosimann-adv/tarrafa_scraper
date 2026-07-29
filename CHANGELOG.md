@@ -27,8 +27,14 @@
   assistentes que leem esse arquivo ao abrir o repositório.
 
 ### Changed
-- Docs/skill: `search` passa a ser o caminho canônico de descoberta. IA pode preparar
-  consultas e prioridades, mas o CLI executa, deduplica e registra a proveniência.
+- Docs/skill: **descoberta passa a ser trabalho de quem orquestra, por padrão.** Provedor
+  próprio (Brave/SearXNG) vira exceção documentada, não pré-requisito: a instrução manda a
+  IA buscar com as ferramentas do próprio ambiente e registrar com `--from-agent`, em vez
+  de pedir configuração que a maioria das instalações não tem. Mensagem de "nenhum
+  provedor configurado" reescrita para apontar esse caminho em vez de exigir chave.
+  Proíbe explicitamente inventar handle, URL ou resultado para preencher o repasse.
+- Docs/skill: `search` continua sendo o caminho de descoberta **dentro** do CLI para quem
+  configurou provedor, com consultas e prioridades preparadas por quem orquestra.
 - **`tarrafa djen --cpf`** — busca de parte priorizada pelo CPF no teor da ComunicaAPI,
   com conferência exata local e sem fallback silencioso para nome/texto.
 - **`tarrafa order-risk`** — triagem de risco de chargeback em pedido e-commerce:

@@ -180,17 +180,37 @@ def test_dest_with_all_also_writes_hosts(tmp_path, monkeypatch):
     assert (claude_root / "skills" / "tarrafa" / "SKILL.md").is_file()
 
 
-def test_discovery_section_uses_cli_and_keeps_ai_optional():
-    """A descoberta pertence ao CLI; IA pode sugerir consultas sem ser dependência."""
+def test_provider_path_stays_documented_but_optional():
+    """Quem tem chave continua podendo buscar no CLI; quem não tem não é bloqueado."""
     text = skills.render(shell="bash")
-    section = text.split("## Antes de capturar: descoberta")[1].split("## Tools")[0]
+    section = text.split("## Antes de capturar")[1].split("## Tools")[0]
     assert "search" in section
-    assert "A IA pode ajudar a formular consultas" in section
-    assert "não substitui a execução do CLI" in section
     assert "--queries-file" in section
+    assert "BRAVE_SEARCH_API_KEY" in section
+    assert "Provedor próprio é opcional" in section
 
 
 def test_skill_documents_verified_flag_behaviour():
     """page não define --headed; a skill não pode sugerir o contrário."""
     text = skills.render(shell="bash")
     assert "`page` não aceita `--headed`" in text
+
+
+def test_skill_tells_ai_to_search_instead_of_asking_for_setup():
+    """A instrução tem que mandar a IA buscar, não pedir configuração ao usuário.
+
+    Sem isso a IA trava pedindo Brave/SearXNG, que quase ninguém tem.
+    """
+    text = skills.render(shell="bash")
+    secao = text.split("## Antes de capturar")[1].split("## Tools")[0]
+    assert "Busque você mesmo" in secao
+    assert "não peça ao usuário" in secao.lower()
+    assert "--from-agent" in secao
+    assert "opcional" in secao
+
+
+def test_skill_forbids_inventing_search_results():
+    text = skills.render(shell="bash")
+    secao = text.split("## Antes de capturar")[1].split("## Tools")[0]
+    assert "Nunca invente handle, URL ou resultado" in secao
+    assert "candidato, não fato" in secao
