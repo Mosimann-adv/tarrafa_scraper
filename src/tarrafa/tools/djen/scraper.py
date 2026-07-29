@@ -70,6 +70,30 @@ def normalize_cpf(cpf: str) -> str | None:
     return format_cpf(cpf)
 
 
+def mask_cpf(cpf: str) -> str | None:
+    """Mascara CPF para metadados sem repetir o identificador completo."""
+    digits = digits_only(cpf)
+    if len(digits) != 11:
+        return None
+    return f"***.***.***-{digits[-2:]}"
+
+
+def cpf_query_variants(cpf: str) -> list[tuple[str, str]]:
+    """Retorna consultas textuais em ordem de prioridade, sem duplicatas."""
+    formatted = normalize_cpf(cpf)
+    if not formatted:
+        return []
+    variants = [
+        ("cpf_formatado", formatted),
+        ("cpf_digitos", digits_only(cpf)),
+    ]
+    unique: list[tuple[str, str]] = []
+    for kind, value in variants:
+        if value not in [existing for _, existing in unique]:
+            unique.append((kind, value))
+    return unique
+
+
 def item_matches_cpf(item: dict[str, Any], cpf: str) -> bool:
     """Confere CPF exato no teor ou no destinatário estruturado retornado pela API."""
     target = digits_only(cpf)
@@ -318,13 +342,9 @@ def collect_comunicacoes(
         base_params["ufOab"] = uf.strip().upper()
     if nome and papel == "advogado":
         base_params["nomeAdvogado"] = nome.strip()
-    if cpf_normalizado:
-        # A API pública não expõe filtro GET estruturado por CPF. A busca mais
-        # específica disponível é o CPF no teor, seguida de conferência local exata.
-        base_params["texto"] = cpf_normalizado
-    elif texto:
+    if texto and not cpf_normalizado:
         base_params["texto"] = texto
-    elif nome and papel == "parte":
+    elif nome and papel == "parte" and not cpf_normalizado:
         base_params["nomeParte"] = nome.strip()
     if numero_processo:
         base_params["numeroProcesso"] = re.sub(r"\D", "", numero_processo)
@@ -338,57 +358,81 @@ def collect_comunicacoes(
     kept: list[dict[str, Any]] = []
     raw_fetched = 0
     api_count: int | None = None
+    api_counts: dict[str, int | None] = {}
     errors: list[str] = []
     pages = 0
     seen_ids: set[Any] = set()
+    query_specs = (
+        cpf_query_variants(cpf_normalizado)
+        if cpf_normalizado
+        else [("consulta_padrao", None)]
+    )
+    queries_requested: list[str] = []
     # Over-fetch a bit because post_filter may discard rows
     max_pages = max(1, min(100, (max_items * 3 + page_size - 1) // page_size + 2))
-    for page in range(1, max_pages + 1):
+    for query_kind, query_text in query_specs:
         if len(kept) >= max_items:
             break
-        params = dict(base_params)
-        params["pagina"] = page
-        params["itensPorPagina"] = page_size
-        res = fetch_page(params, timeout=timeout)
-        pages += 1
-        if not res.get("ok"):
-            errors.append(res.get("error") or "fetch failed")
-            break
-        data = res["data"] or {}
-        if api_count is None:
-            try:
-                api_count = int(data.get("count") or 0)
-            except Exception:
-                api_count = None
-        items = data.get("items") or []
-        if not items:
-            break
-        page_ids = [it.get("id") for it in items if isinstance(it, dict)]
-        if page_ids and all(i in seen_ids for i in page_ids if i is not None):
-            # pagination stuck / repeated page
-            break
-        raw_fetched += len(items)
-        for it in items:
-            if not isinstance(it, dict):
-                continue
-            iid = it.get("id")
-            if iid is not None:
-                if iid in seen_ids:
-                    continue
-                seen_ids.add(iid)
-            if cpf_normalizado and not item_matches_cpf(it, cpf_normalizado):
-                continue
-            if post_filter and papel == "advogado" and (oab or nome):
-                if not item_matches_lawyer(it, oab=oab, uf=uf, nome=nome):
-                    continue
-            kept.append(summarize_item(it, extract_hints=extract_hints))
+        queries_requested.append(query_kind)
+        query_raw_fetched = 0
+        query_seen_ids: set[Any] = set()
+        query_count: int | None = None
+        for page in range(1, max_pages + 1):
             if len(kept) >= max_items:
                 break
-        if len(items) < page_size:
-            break
-        if api_count is not None and raw_fetched >= min(api_count, MAX_API_TOTAL):
-            break
+            params = dict(base_params)
+            if query_text:
+                params["texto"] = query_text
+            params["pagina"] = page
+            params["itensPorPagina"] = page_size
+            res = fetch_page(params, timeout=timeout)
+            pages += 1
+            if not res.get("ok"):
+                errors.append(f"{query_kind}: {res.get('error') or 'fetch failed'}")
+                break
+            data = res["data"] or {}
+            try:
+                query_count = int(data.get("count") or 0)
+            except Exception:
+                query_count = None
+            if query_kind not in api_counts:
+                api_counts[query_kind] = query_count
+            items = data.get("items") or []
+            if not items:
+                break
+            page_ids = [it.get("id") for it in items if isinstance(it, dict)]
+            if page_ids and all(i in query_seen_ids for i in page_ids if i is not None):
+                # pagination stuck / repeated page within the same query variant
+                break
+            query_raw_fetched += len(items)
+            raw_fetched += len(items)
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                iid = it.get("id")
+                if iid is not None:
+                    query_seen_ids.add(iid)
+                    if iid in seen_ids:
+                        continue
+                    seen_ids.add(iid)
+                if cpf_normalizado and not item_matches_cpf(it, cpf_normalizado):
+                    continue
+                if post_filter and papel == "advogado" and (oab or nome):
+                    if not item_matches_lawyer(it, oab=oab, uf=uf, nome=nome):
+                        continue
+                kept.append(summarize_item(it, extract_hints=extract_hints))
+                if len(kept) >= max_items:
+                    break
+            if len(items) < page_size:
+                break
+            if query_count is not None and query_raw_fetched >= min(query_count, MAX_API_TOTAL):
+                break
+    known_counts = [count for count in api_counts.values() if count is not None]
+    api_count = max(known_counts) if known_counts else None
     summary = build_summary(kept, api_count=api_count, papel=papel)
+    public_params = {k: v for k, v in base_params.items() if k != "itensPorPagina"}
+    if cpf_normalizado:
+        public_params["cpf"] = mask_cpf(cpf_normalizado)
     return {
         "items": kept,
         "summary": summary,
@@ -402,9 +446,11 @@ def collect_comunicacoes(
             "post_filter": post_filter and papel == "advogado",
             "cpf_exact_filter": bool(cpf_normalizado),
             "search_priority": "cpf" if cpf_normalizado else "default",
+            "query_variants": queries_requested,
+            "api_counts_reported": api_counts,
             "papel": papel,
             "extract_hints": extract_hints,
-            "params": {k: v for k, v in base_params.items() if k != "itensPorPagina"},
+            "params": public_params,
         },
     }
 
@@ -608,7 +654,8 @@ def main(argv: list[str] | None = None) -> int:
         if cpf_normalizado:
             notes.append(
                 "CPF priorizado: --nome/--texto não foram usados na consulta; "
-                "cada comunicação foi conferida localmente pelo CPF exato."
+                "foram consultadas as formas formatada e sem pontuação, com "
+                "deduplicação e conferência local pelo CPF exato."
             )
 
     envelope = build_envelope(
@@ -619,7 +666,7 @@ def main(argv: list[str] | None = None) -> int:
             "papel": papel,
             "oab": normalize_oab(args.oab) if args.oab else None,
             "uf": (args.uf or "").upper() or None,
-            "cpf": cpf_normalizado,
+            "cpf": mask_cpf(cpf_normalizado or "") if cpf_normalizado else None,
             "nome": args.nome,
             "texto": args.texto,
             "search_priority": "cpf" if cpf_normalizado else "default",

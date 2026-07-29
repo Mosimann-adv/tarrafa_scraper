@@ -9,6 +9,8 @@ storage_state.json
 *_login_dummy.json
 _smoke_*/
 _smoke_*.json
+_verify_*/
+_verify_*.json
 *.checkpoint.ndjson
 ig_scrape_stats*.json
 .env

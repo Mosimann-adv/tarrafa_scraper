@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tarrafa-scraper"
 dynamic = ["version"]
-description = "Tarrafa — multi-source CLI for open-web capture and legal inventory (page, site, feed, shot, video, IG, CNPJ, DJEN, Datajud, PDF)."
+description = "Tarrafa — multi-source CLI for open-web discovery, capture and legal inventory (search, page, site, feed, shot, video, IG, CNPJ, DJEN, Datajud, PDF)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "PolyForm-Noncommercial-1.0.0"
@@ -14,7 +14,7 @@ authors = [
   { name = "Mosimann Advocacia", email = "mosimannadv@gmail.com" },
   { name = "Tarrafa contributors" },
 ]
-keywords = ["scraper", "instagram", "playwright", "tarrafa", "rss", "crawl", "screenshot", "video", "pdf", "cnpj", "djen"]
+keywords = ["scraper", "search", "discovery", "instagram", "playwright", "tarrafa", "rss", "crawl", "screenshot", "video", "pdf", "cnpj", "djen"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",

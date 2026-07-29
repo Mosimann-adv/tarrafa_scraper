@@ -41,6 +41,9 @@ _HINTS: dict[str, str] = {
     "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "-> put token in ~/.tarrafa/.env or <repo>/.env (optional)",
     "tomllib": "-> Python ≥ 3.11 or pip install tomli  (for tarrafa.toml)",
     "skills": "-> tarrafa skills install  (ensina a Tarrafa aos hosts de IA desta máquina)",
+    "search-provider": (
+        "-> configure BRAVE_SEARCH_API_KEY ou SEARXNG_URL em ~/.tarrafa/.env ou <repo>/.env"
+    ),
 }
 
 
@@ -136,6 +139,26 @@ def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
         cands = " | ".join(tok["candidates"])
         detail = f"absent (optional; put PLAYWRIGHT_MCP_EXTENSION_TOKEN in {cands})"
     add("PLAYWRIGHT_MCP_EXTENSION_TOKEN", bool(tok["present"]), detail, required=False)
+
+    # Descoberta web (opcional): ao menos um provedor configurado.
+    import os
+
+    brave_search = bool(
+        os.environ.get("TARRAFA_BRAVE_SEARCH_API_KEY")
+        or os.environ.get("BRAVE_SEARCH_API_KEY")
+    )
+    searxng = bool(os.environ.get("TARRAFA_SEARXNG_URL") or os.environ.get("SEARXNG_URL"))
+    configured = [
+        label
+        for label, present in (("Brave", brave_search), ("SearXNG", searxng))
+        if present
+    ]
+    add(
+        "search-provider",
+        bool(configured),
+        ", ".join(configured) if configured else "nenhum provedor configurado",
+        required=False,
+    )
 
     # Skill de IA instalada nos hosts detectados (optional)
     try:

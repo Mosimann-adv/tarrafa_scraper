@@ -391,6 +391,7 @@ Fluxo típico:
 
 | Quero… | Comando base |
 |--------|--------------|
+| Descobrir URLs na internet | `tarrafa search --query '"Nome" cidade' --out ./raw/search.json` |
 | Texto e dados de uma URL | `tarrafa page --url URL --out ./raw/page.json` |
 | Várias URLs de uma vez | `tarrafa page --urls-file urls.txt --out ./raw/pages/` |
 | Print de tela | `tarrafa shot --url URL --out-dir ./shots --id DOC01` |
@@ -433,6 +434,7 @@ Configuração em camadas: flags → env (`TARRAFA_TIMEOUT`, …) →
 | Python 3.10+, dependências e Chromium | Computador de quem usa |
 | Sessão Instagram (`storage_state.json`) | Login nativo de cada usuário; nunca compartilhe o arquivo |
 | `DATAJUD_API_KEY` | Opcional; se usada, deve ficar no `.env` local |
+| `BRAVE_SEARCH_API_KEY` ou `SEARXNG_URL` | Ao menos um para descoberta com `tarrafa search` |
 | Token Playwright MCP | Opcional (só host/IDE com extension); coletas usam o **CLI** + `storage_state` |
 
 **Não** digite senha no CLI. **Não** automatize Facebook OIDC. Os arquivos são
@@ -446,6 +448,7 @@ gravados no caminho informado pelo usuário.
 |---------|--------|
 | `tarrafa init` | Cria workspace opcional (`tarrafa.toml` + pastas) |
 | `tarrafa ig` | Comentários Instagram → JSON com permalink `/c/{id}/` |
+| `tarrafa search` | Busca web → URLs candidatas com proveniência |
 | `tarrafa page` | Uma URL pública → texto + facts (meta / JSON-LD) |
 | `tarrafa site` | Crawl concorrente same-host (max pages / depth) |
 | `tarrafa feed` | RSS/Atom → envelope de entradas |
@@ -516,6 +519,26 @@ pytest -q -m integration  # rede e Chromium
 ---
 
 ## Exemplos
+
+### Descoberta web
+
+```bash
+# uma consulta
+tarrafa search --query '"Nome Completo" cidade profissão' \
+  --urls-out ./out/urls.txt --out ./out/search.json
+
+# plano preparado por uma pessoa ou IA; uma consulta por linha
+tarrafa search --queries-file ./consultas.txt --max-results 30 \
+  --urls-out ./out/urls.txt --out ./out/search.json
+
+# captura determinística dos candidatos encontrados
+tarrafa page --urls-file ./out/urls.txt --out ./out/pages/
+```
+
+Configure `BRAVE_SEARCH_API_KEY` ou `SEARXNG_URL` no `.env`. Resultados são
+candidatos, não confirmação de identidade. CPF, e-mail e telefone são bloqueados
+por padrão; `--allow-sensitive-query` exige decisão explícita. A IA é opcional:
+`search` não chama modelo nem exige credencial de qualquer provedor de IA.
 
 ### Página
 

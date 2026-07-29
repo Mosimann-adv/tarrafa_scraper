@@ -53,6 +53,9 @@ def test_sanitize_argv_redacts_sensitive_options():
             "Bearer synthetic",
             "--url",
             "https://x",
+            "--query",
+            '"Pessoa Exemplo"',
+            "--queries-file=consultas.txt",
         ]
     )
     assert out == [
@@ -63,6 +66,9 @@ def test_sanitize_argv_redacts_sensitive_options():
         "***",
         "--url",
         "https://x",
+        "--query",
+        "***",
+        "--queries-file=***",
     ]
 
 
@@ -172,4 +178,6 @@ def test_no_clobber_refuses_overwrite(tmp_path: Path):
 
 def test_list_includes_init(capsys):
     assert cli_main(["list"]) == 0
-    assert "init" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "init" in output
+    assert "search" in output

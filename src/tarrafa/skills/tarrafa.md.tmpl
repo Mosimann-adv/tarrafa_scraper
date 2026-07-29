@@ -2,7 +2,7 @@
 name: tarrafa
 description: >
   Tarrafa — CLI de captura multi-fonte para inventário de material aberto e prova
-  documental. Tools: ig, page, site, feed, shot, video, album, dossier, cnpj, djen,
+  documental. Tools: search, ig, page, site, feed, shot, video, album, dossier, cnpj, djen,
   datajud, stj, pdf-extract, order-risk, doctor.
   Use quando o pedido envolver: tarrafa, print/screenshot de página, salvar página como
   prova, comentários do Instagram, DJEN, comunicações de advogado ou parte, Datajud,
@@ -55,32 +55,35 @@ arquivo é frágil e a saída não tem o envelope.
 Ferramenta de browser do host serve para inspeção pontual, quando já está conectada.
 Nunca para coleta em massa.
 
-## Antes de capturar: de onde vem a âncora
+## Antes de capturar: descoberta
 
-As tools recebem uma URL, um número ou um nome que você **já tem**. Perfil de pessoa
-depende de âncoras — handle, endereço do site, CPF, OAB, CNJ — e elas precisam vir de
-algum lugar. Resolva nesta ordem, checando o que existe em vez de assumir:
+Use `search` para encontrar URLs candidatas antes de `page`, `site`, `shot` ou `ig`.
+A IA pode ajudar a formular consultas, combinar nome/cidade/função e ordenar prioridades,
+mas não substitui a execução do CLI: busca, deduplicação, proveniência e arquivos ficam
+sob responsabilidade da Tarrafa. `search` não chama modelo nem exige credencial de IA.
 
-**1. Pergunte ao próprio CLI.** Rode `{{TARRAFA_CALL}} list`. Se houver tool de busca ou
-descoberta, ela é o caminho preferido e o resto desta seção não se aplica. A lista é a
-autoridade; não decida pela memória de quais tools existiam.
+```{{TARRAFA_SHELL}}
+{{TARRAFA_CALL}} search --query '"Nome Completo" cidade profissão' {{TARRAFA_CONT}}
+  --urls-out "PASTA/urls.txt" --out "PASTA/search.json"
 
-**2. Sem tool de descoberta, e havendo busca no seu ambiente**, levante as âncoras por
-ali e passe as URLs encontradas para `shot`, `page` ou `ig`. O que vem de busca é
-indício a confirmar, não fato: registre a origem e cruze com fonte oficial antes de
-afirmar. Convergência entre fontes independentes é o que separa perfil lastreado de
-perfil montado sobre homônimo.
+# uma IA ou pessoa pode preparar uma consulta por linha
+{{TARRAFA_CALL}} search --queries-file "PASTA/consultas.txt" {{TARRAFA_CONT}}
+  --urls-out "PASTA/urls.txt" --out "PASTA/search.json"
 
-**3. Sem busca disponível**, peça as âncoras ao usuário. Não invente handle nem deduza
-URL a partir do nome.
+{{TARRAFA_CALL}} page --urls-file "PASTA/urls.txt" --out "PASTA/pages"
+```
 
-Isto descreve o estado atual do CLI, não uma regra de arquitetura — a divisão muda no dia
-em que a descoberta virar tool. Por isso o passo 1 existe: reveja sempre, não presuma.
+Resultado de busca é candidato, não fato. Cruze fontes e confirme identidade antes de
+afirmar. `search` bloqueia CPF, e-mail e telefone por padrão; só use
+`--allow-sensitive-query` quando o envio ao provedor externo tiver sido autorizado.
+Se não houver Brave ou SearXNG configurado, informe a lacuna e peça configuração; não
+invente handle nem URL.
 
 ## Tools
 
 | Pedido | Comando |
 |--------|---------|
+| Descobrir URLs candidatas na web | `search` |
 | Uma página pública (texto/links/facts) | `page` |
 | Crawl shallow de site (mesmo host) | `site` |
 | RSS/Atom | `feed` |
@@ -206,7 +209,7 @@ lacunas). Não faz busca na web e não inventa biografia. Nunca embuta print de 
 
 ## Envelope de saída
 
-`page` / `site` / `feed` retornam: `tool`, `version`, `collected_at`, `source`, `meta`,
+`search` / `page` / `site` / `feed` retornam: `tool`, `version`, `collected_at`, `source`, `meta`,
 `count`, `items[]`, `errors[]`, `notes[]`.
 
 ## Exit codes

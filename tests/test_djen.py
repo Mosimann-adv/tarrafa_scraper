@@ -6,9 +6,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from tarrafa.tools.djen.scraper import (
+    cpf_query_variants,
     item_matches_cpf,
     item_matches_lawyer,
     main,
+    mask_cpf,
     resolve_papel,
     strip_html,
     summarize_item,
@@ -59,6 +61,15 @@ def test_item_matches_cpf_no_teor_ou_destinatario():
         cpf,
     )
     assert not item_matches_cpf({"texto": "Parte Maria Exemplo, sem documento"}, cpf)
+
+
+def test_variantes_e_mascara_de_cpf():
+    cpf_digitos, cpf = _cpf_teste()
+    assert cpf_query_variants(cpf) == [
+        ("cpf_formatado", cpf),
+        ("cpf_digitos", cpf_digitos),
+    ]
+    assert mask_cpf(cpf) == f"***.***.***-{cpf_digitos[-2:]}"
 
 
 def test_summarize_item():
@@ -247,14 +258,54 @@ def test_main_prioriza_cpf_e_filtra_correspondencia_exata(tmp_path: Path):
         )
 
     assert code == 0
-    params = fetch.call_args.args[0]
-    assert params["texto"] == cpf
-    assert "nomeParte" not in params
+    consultas = [call.args[0] for call in fetch.call_args_list]
+    assert [params["texto"] for params in consultas] == [cpf, cpf_digitos]
+    assert all("nomeParte" not in params for params in consultas)
     env = json.loads(out.read_text(encoding="utf-8"))
     comunicacoes = [i for i in env["items"] if i.get("kind") == "djen_comunicacao"]
     assert [i["id"] for i in comunicacoes] == [201]
     assert env["source"]["search_priority"] == "cpf"
+    assert env["source"]["cpf"] == mask_cpf(cpf)
     assert env["meta"]["cpf_exact_filter"] is True
+    assert env["meta"]["query_variants"] == ["cpf_formatado", "cpf_digitos"]
+    assert env["meta"]["params"]["cpf"] == mask_cpf(cpf)
+    meta_json = json.dumps(env["meta"], ensure_ascii=False)
+    assert cpf not in meta_json
+    assert cpf_digitos not in meta_json
+
+
+def test_main_encontra_cpf_sem_pontuacao_na_segunda_consulta(tmp_path: Path):
+    cpf_digitos, cpf = _cpf_teste()
+    out = tmp_path / "djen_cpf_digitos.json"
+
+    def fake_fetch(params, *, timeout):
+        items = []
+        if params["texto"] == cpf_digitos:
+            items = [
+                {
+                    "id": 301,
+                    "texto": f"Parte: Maria Exemplo CPF {cpf_digitos}",
+                    "siglaTribunal": "TJSP",
+                    "tipoComunicacao": "Intimação",
+                    "destinatarioadvogados": [],
+                }
+            ]
+        return {
+            "ok": True,
+            "status": 200,
+            "url": "https://comunicaapi.pje.jus.br/api/v1/comunicacao",
+            "data": {"count": len(items), "items": items},
+            "error": None,
+        }
+
+    with patch("tarrafa.tools.djen.scraper.fetch_page", side_effect=fake_fetch) as fetch:
+        code = main(["--papel", "parte", "--cpf", cpf, "--out", str(out)])
+
+    assert code == 0
+    assert [call.args[0]["texto"] for call in fetch.call_args_list] == [cpf, cpf_digitos]
+    env = json.loads(out.read_text(encoding="utf-8"))
+    comunicacoes = [item for item in env["items"] if item.get("kind") == "djen_comunicacao"]
+    assert [item["id"] for item in comunicacoes] == [301]
 
 
 def test_main_rejeita_cpf_invalido(tmp_path: Path):

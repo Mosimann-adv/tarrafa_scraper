@@ -180,16 +180,14 @@ def test_dest_with_all_also_writes_hosts(tmp_path, monkeypatch):
     assert (claude_root / "skills" / "tarrafa" / "SKILL.md").is_file()
 
 
-def test_discovery_section_is_conditional_not_a_rule():
-    """A lacuna de descoberta é contorno do estado atual, não regra de arquitetura.
-
-    O gancho que mantém isso auto-corrigível é mandar consultar `tarrafa list`
-    antes de assumir que não existe tool de busca.
-    """
+def test_discovery_section_uses_cli_and_keeps_ai_optional():
+    """A descoberta pertence ao CLI; IA pode sugerir consultas sem ser dependência."""
     text = skills.render(shell="bash")
-    assert "Antes de capturar: de onde vem a âncora" in text
-    assert "list" in text.split("Antes de capturar")[1].split("## Tools")[0]
-    assert "não uma regra de arquitetura" in text
+    section = text.split("## Antes de capturar: descoberta")[1].split("## Tools")[0]
+    assert "search" in section
+    assert "A IA pode ajudar a formular consultas" in section
+    assert "não substitui a execução do CLI" in section
+    assert "--queries-file" in section
 
 
 def test_skill_documents_verified_flag_behaviour():

@@ -8,6 +8,10 @@
   logradouro usa comparação mais estrita e falhas retornam exit code `1`.
 
 ### Added
+- **`tarrafa search`** — descoberta web material-only com providers Brave/SearXNG,
+  seleção `auto`, paginação, deduplicação canônica, proveniência por consulta,
+  `--queries-file` e `--urls-out` para alimentar `page --urls-file`. Consultas com
+  CPF, e-mail ou telefone são bloqueadas por padrão.
 - **`tarrafa skills`** — skill embutida no pacote: `install` grava as instruções da Tarrafa
   nos hosts de IA detectados (Claude Code, Grok CLI) com o caminho do executável **desta**
   instalação já resolvido, eliminando o "command not found" que leva a IA a improvisar.
@@ -17,11 +21,8 @@
   assistentes que leem esse arquivo ao abrir o repositório.
 
 ### Changed
-- Docs/skill: registram que os passos de **âncora e descoberta** não têm tool no CLI de
-  hoje. A instrução manda conferir `tarrafa list` antes de assumir a ausência, usar a
-  busca do ambiente quando houver (tratando o achado como indício a confirmar) e pedir a
-  âncora ao usuário quando não houver — explicitamente como contorno do estado atual, não
-  como divisão permanente de responsabilidade.
+- Docs/skill: `search` passa a ser o caminho canônico de descoberta. IA pode preparar
+  consultas e prioridades, mas o CLI executa, deduplica e registra a proveniência.
 - **`tarrafa djen --cpf`** — busca de parte priorizada pelo CPF no teor da ComunicaAPI,
   com conferência exata local e sem fallback silencioso para nome/texto.
 - **`tarrafa order-risk`** — triagem de risco de chargeback em pedido e-commerce:

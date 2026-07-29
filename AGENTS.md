@@ -28,6 +28,7 @@ Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or cas
 | Pedido | Comando |
 |--------|---------|
 | Comentários IG + permalink `/c/` | `tarrafa ig` |
+| Descobrir URLs candidatas na web | `tarrafa search` |
 | Uma página pública (texto/links/facts) | `tarrafa page` |
 | Crawl shallow de site | `tarrafa site` |
 | RSS/Atom | `tarrafa feed` |
@@ -67,6 +68,8 @@ Windows (venv local), se o script ainda não estiver no PATH:
 tarrafa list
 tarrafa doctor
 
+tarrafa search --query '"Nome Completo" cidade' --max-results 30 \
+  --urls-out "OUT_DIR/urls.txt" --out "OUT_DIR/search.json"
 tarrafa page --url "URL" --out "OUT.json"
 tarrafa shot --url "URL" --out-dir "OUT_DIR" --id SHOT01 --full-page --dpr 2
 tarrafa album --dir "OUT_DIR" --out "OUT_DIR/album.html" --title "…" --kicker "Inventário visual"
@@ -135,6 +138,8 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 ```
 
 - `PLAYWRIGHT_MCP_EXTENSION_TOKEN` — opcional; só para MCP extension no host (ex.: Grok). O CLI **não depende** dele para coletar.
+- `BRAVE_SEARCH_API_KEY` — provedor oficial opcional para `tarrafa search`.
+- `SEARXNG_URL` — alternativa opcional; a instância precisa habilitar saída JSON.
 - O CLI chama `load_tarrafa_env()` no startup; **não sobrescreve** env já definido no processo.
 - `tarrafa doctor` mostra token (mascarado) e `storage_state.json` se presentes.
 - **Nunca** commitar `.env`, token em README, ou hardcode em código.
@@ -161,12 +166,10 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 14. **IG prints e comentários:** `tarrafa shot` / `tarrafa ig` no path do caso. Não depender de MCP para gravar PNG/JSON. Never embed login-wall shots in `dossier`.
 15. **CPF vs CNPJ mask:** CNPJá `***ABCDEF**` ≈ CPF digits 4–9. Do **not** attach a company QSA to the person if the mask does not match the CPF from court PDFs.
 16. Judicial annex PDF (Times, no internal paths) is **orchestration**, not a CLI tool — keep case narrative out of this repo.
-17. **Âncoras antes da captura:** as tools recebem URL/número/nome já conhecido. Antes de
-    assumir como obter uma âncora, rode `tarrafa list` — havendo tool de descoberta, ela
-    tem prioridade. Não havendo, use a busca do ambiente (se existir) e trate o achado
-    como indício a confirmar; sem busca, peça a âncora ao usuário. Nunca deduza handle ou
-    URL a partir do nome. Isto descreve o CLI de hoje, não uma divisão permanente.
-
+17. `search` só descobre candidatos; não confirma identidade. IA pode sugerir consultas e
+    prioridades, inclusive por `--queries-file`, mas execução, deduplicação, proveniência
+    e captura devem permanecer no CLI. Consultas com CPF/e-mail/telefone são bloqueadas
+    sem `--allow-sensitive-query`.
 ## Exit codes (common)
 
 | Code | Meaning |

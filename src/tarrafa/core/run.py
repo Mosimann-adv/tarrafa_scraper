@@ -14,7 +14,7 @@ from tarrafa.core.writers import utc_now_iso, write_json
 
 _SENSITIVE = re.compile(
     (
-        r"(token|password|passwd|secret|authorization|cookie|credential|"
+        r"(token|password|passwd|secret|authorization|cookie|credential|quer(?:y|ies)|"
         r"storage[-_.]?state|api[-_.]?key|session(?:id)?)"
     ),
     re.I,
