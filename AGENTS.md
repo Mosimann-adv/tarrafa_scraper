@@ -70,6 +70,9 @@ tarrafa doctor
 
 tarrafa search --query '"Nome Completo" cidade' --max-results 30 \
   --urls-out "OUT_DIR/urls.txt" --out "OUT_DIR/search.json"
+# sem provedor: registre a descoberta feita fora do CLI (não a inventa)
+tarrafa search --from-agent "OUT_DIR/repasse.json" \
+  --urls-out "OUT_DIR/urls.txt" --out "OUT_DIR/search.json"
 tarrafa page --url "URL" --out "OUT.json"
 tarrafa shot --url "URL" --out-dir "OUT_DIR" --id SHOT01 --full-page --dpr 2
 tarrafa album --dir "OUT_DIR" --out "OUT_DIR/album.html" --title "…" --kicker "Inventário visual"

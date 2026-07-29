@@ -76,8 +76,26 @@ sob responsabilidade da Tarrafa. `search` não chama modelo nem exige credencial
 Resultado de busca é candidato, não fato. Cruze fontes e confirme identidade antes de
 afirmar. `search` bloqueia CPF, e-mail e telefone por padrão; só use
 `--allow-sensitive-query` quando o envio ao provedor externo tiver sido autorizado.
-Se não houver Brave ou SearXNG configurado, informe a lacuna e peça configuração; não
-invente handle nem URL.
+
+**Sem Brave nem SearXNG configurado**, informe a lacuna. Se ainda assim você buscar pelo
+seu próprio ambiente, **registre o que encontrou** com `--from-agent`, para a origem das
+âncoras não ficar só no chat:
+
+```{{TARRAFA_SHELL}}
+{{TARRAFA_CALL}} search --from-agent "PASTA/repasse.json" {{TARRAFA_CONT}}
+  --urls-out "PASTA/urls.txt" --out "PASTA/search.json"
+```
+
+```json
+{"agent": "quem buscou",
+ "note": "por que a busca saiu do CLI",
+ "queries": [{"query": "texto da consulta",
+              "results": [{"url": "https://…", "title": "…", "snippet": "…"}]}]}
+```
+
+A Tarrafa não finge ter buscado: o envelope marca `provider: agent:<nome>`,
+`requests: 0` e uma nota dizendo que a busca ocorreu fora do CLI. Ela deduplica,
+canoniza e ranqueia como sempre. Nunca invente handle nem URL para preencher o arquivo.
 
 ## Tools
 

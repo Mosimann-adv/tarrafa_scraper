@@ -128,6 +128,168 @@ def _query_records(queries: list[str]) -> list[dict[str, Any]]:
     return records
 
 
+def _new_candidate(
+    raw: dict[str, Any],
+    canonical: str,
+    provider_name: str,
+    discovery: dict[str, Any],
+) -> dict[str, Any]:
+    """Monta um candidato no formato do envelope, comum a todas as origens."""
+    split = urlsplit(canonical)
+    return {
+        "kind": "search_candidate",
+        "provider": provider_name,
+        "url": str(raw.get("url") or canonical),
+        "canonical_url": canonical,
+        "domain": (split.hostname or "").lower(),
+        "title": str(raw.get("title") or ""),
+        "snippet": str(raw.get("snippet") or ""),
+        "published_at": raw.get("published_at"),
+        "language": raw.get("language"),
+        "engine": raw.get("engine"),
+        "provider_meta": raw.get("provider_meta") or {},
+        "discovered_by": [discovery],
+    }
+
+
+def _rank_candidates(candidates: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    items = list(candidates.values())
+    items.sort(
+        key=lambda item: min(
+            int(discovery["provider_rank"]) for discovery in item["discovered_by"]
+        )
+    )
+    for rank, item in enumerate(items, start=1):
+        item["rank"] = rank
+    return items
+
+
+class AgentHandoffError(ValueError):
+    """Arquivo de repasse malformado."""
+
+
+def read_agent_handoff(path: Path) -> dict[str, Any]:
+    """Lê descoberta feita fora do CLI, preservando consulta e origem.
+
+    Formato mínimo::
+
+        {"agent": "quem buscou",
+         "queries": [{"query": "texto", "results": [{"url": "https://…"}]}]}
+    """
+    import json
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeError) as exc:
+        raise AgentHandoffError(f"não foi possível ler o arquivo ({type(exc).__name__})") from exc
+    except json.JSONDecodeError as exc:
+        raise AgentHandoffError(f"JSON inválido: {exc.msg} (linha {exc.lineno})") from exc
+
+    if not isinstance(payload, dict):
+        raise AgentHandoffError("o arquivo deve conter um objeto JSON no topo")
+
+    agent = str(payload.get("agent") or "").strip()
+    if not agent:
+        raise AgentHandoffError("campo 'agent' obrigatório: registre quem fez a busca")
+
+    raw_queries = payload.get("queries")
+    if not isinstance(raw_queries, list) or not raw_queries:
+        raise AgentHandoffError("campo 'queries' deve ser uma lista não vazia")
+
+    blocks: list[dict[str, Any]] = []
+    for index, entry in enumerate(raw_queries, start=1):
+        if not isinstance(entry, dict):
+            raise AgentHandoffError(f"queries[{index}] deve ser um objeto")
+        query = str(entry.get("query") or "").strip()
+        if not query:
+            raise AgentHandoffError(f"queries[{index}] sem o campo 'query'")
+        results = entry.get("results") or []
+        if not isinstance(results, list):
+            raise AgentHandoffError(f"queries[{index}].results deve ser uma lista")
+        cleaned: list[dict[str, Any]] = []
+        for result in results:
+            if isinstance(result, str):
+                cleaned.append({"url": result})
+            elif isinstance(result, dict):
+                cleaned.append(result)
+            else:
+                raise AgentHandoffError(
+                    f"queries[{index}].results aceita string ou objeto, não {type(result).__name__}"
+                )
+        blocks.append({"query": query, "results": cleaned})
+
+    # Consulta repetida vira um bloco só: o pareamento com query_records é
+    # posicional, e deduplicar depois desalinharia consulta e resultados.
+    merged: dict[str, dict[str, Any]] = {}
+    for block in blocks:
+        existing = merged.get(block["query"])
+        if existing is None:
+            merged[block["query"]] = block
+        else:
+            existing["results"].extend(block["results"])
+
+    return {
+        "agent": agent,
+        "note": str(payload.get("note") or "").strip(),
+        "blocks": list(merged.values()),
+    }
+
+
+def collect_from_agent(
+    handoff: dict[str, Any],
+    query_records: list[dict[str, Any]],
+    *,
+    max_results: int,
+) -> dict[str, Any]:
+    """Ingere descoberta externa pelo mesmo funil de dedup e ranking.
+
+    O CLI não buscou: ele registra o que outro encontrou, com a consulta que
+    produziu cada URL. Sem isso a proveniência da âncora vive fora do caso.
+    """
+    provider_name = f"agent:{handoff['agent']}"
+    candidates: dict[str, dict[str, Any]] = {}
+    errors: list[str] = []
+    raw_results = 0
+    discarded = 0
+
+    for query_record, block in zip(query_records, handoff["blocks"]):
+        query_id = str(query_record["id"])
+        accepted = 0
+        for provider_rank, raw in enumerate(block["results"], start=1):
+            raw_results += 1
+            if accepted >= max_results:
+                break
+            canonical = canonicalize_url(str(raw.get("url") or ""))
+            if not canonical:
+                discarded += 1
+                errors.append(f"{query_id}: URL inválida descartada na posição {provider_rank}")
+                continue
+            discovery = {"query_id": query_id, "provider_rank": provider_rank, "page": 1}
+            if canonical in candidates:
+                candidates[canonical]["discovered_by"].append(discovery)
+                continue
+            candidates[canonical] = _new_candidate(raw, canonical, provider_name, discovery)
+            accepted += 1
+
+    items = _rank_candidates(candidates)
+    return {
+        "items": items,
+        "errors": errors,
+        "meta": {
+            "provider": provider_name,
+            "agent": handoff["agent"],
+            "agent_note": handoff["note"] or None,
+            "queries": len(query_records),
+            "requests": 0,
+            "raw_results": raw_results,
+            "deduplicated_results": len(items),
+            "duplicates_removed": max(0, raw_results - discarded - len(items)),
+            "discarded_invalid_urls": discarded,
+            "max_results_per_query": max_results,
+        },
+    }
+
+
 def collect_search(
     provider: BaseSearchProvider,
     query_records: list[dict[str, Any]],
@@ -185,21 +347,7 @@ def collect_search(
                 if canonical in candidates:
                     candidates[canonical]["discovered_by"].append(discovery)
                     continue
-                split = urlsplit(canonical)
-                candidates[canonical] = {
-                    "kind": "search_candidate",
-                    "provider": provider.name,
-                    "url": str(raw.get("url") or canonical),
-                    "canonical_url": canonical,
-                    "domain": (split.hostname or "").lower(),
-                    "title": str(raw.get("title") or ""),
-                    "snippet": str(raw.get("snippet") or ""),
-                    "published_at": raw.get("published_at"),
-                    "language": raw.get("language"),
-                    "engine": raw.get("engine"),
-                    "provider_meta": raw.get("provider_meta") or {},
-                    "discovered_by": [discovery],
-                }
+                candidates[canonical] = _new_candidate(raw, canonical, provider.name, discovery)
                 if accepted_for_query >= max_results:
                     break
             if accepted_for_query >= max_results:
@@ -207,14 +355,7 @@ def collect_search(
             if not result_page.has_more or new_on_page == 0:
                 break
 
-    items = list(candidates.values())
-    items.sort(
-        key=lambda item: min(
-            int(discovery["provider_rank"]) for discovery in item["discovered_by"]
-        )
-    )
-    for rank, item in enumerate(items, start=1):
-        item["rank"] = rank
+    items = _rank_candidates(candidates)
     return {
         "items": items,
         "errors": errors,
@@ -243,6 +384,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--queries-file",
         default=None,
         help="Arquivo UTF-8 com uma consulta por linha (# comentário)",
+    )
+    ap.add_argument(
+        "--from-agent",
+        default=None,
+        metavar="ARQUIVO",
+        help=(
+            "Registra descoberta feita fora do CLI (JSON com 'agent' e 'queries'). "
+            "Não consulta provedor: só deduplica, canoniza e grava a proveniência"
+        ),
     )
     ap.add_argument("--provider", choices=["auto", "brave", "searxng"], default="auto")
     ap.add_argument(
@@ -283,7 +433,27 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     args = build_arg_parser().parse_args(argv)
-    queries = list(args.query or [])
+
+    handoff: dict[str, Any] | None = None
+    if args.from_agent:
+        if args.query or args.queries_file:
+            print(
+                "search: --from-agent traz as próprias consultas; "
+                "não combine com --query nem --queries-file",
+                file=sys.stderr,
+            )
+            return 2
+        handoff_path = Path(args.from_agent)
+        if not handoff_path.is_file():
+            print(f"search: arquivo de repasse não encontrado: {handoff_path}", file=sys.stderr)
+            return 2
+        try:
+            handoff = read_agent_handoff(handoff_path)
+        except AgentHandoffError as exc:
+            print(f"search: repasse inválido: {exc}", file=sys.stderr)
+            return 2
+
+    queries = [block["query"] for block in handoff["blocks"]] if handoff else list(args.query or [])
     if args.queries_file:
         query_path = Path(args.queries_file)
         if not query_path.is_file():
@@ -319,7 +489,9 @@ def main(argv: list[str] | None = None) -> int:
 
     query_records = _query_records(queries)
     sensitive = [record for record in query_records if record["sensitive_kinds"]]
-    if sensitive and not args.allow_sensitive_query:
+    # Em --from-agent a busca externa já aconteceu: bloquear não desfaz o envio,
+    # só apagaria o registro. Mascaramos no envelope e sinalizamos em notes.
+    if sensitive and handoff is None and not args.allow_sensitive_query:
         details = ", ".join(
             f"{record['id']} ({'/'.join(record['sensitive_kinds'])})" for record in sensitive
         )
@@ -330,26 +502,31 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    try:
-        provider = resolve_provider(
-            args.provider,
-            api_key=args.api_key,
-            searxng_url=args.searxng_url,
-            timeout=args.timeout,
-        )
-    except SearchProviderConfigurationError as exc:
-        print(f"search: {exc}", file=sys.stderr)
-        return 2
+    if handoff is not None:
+        provider_name = f"agent:{handoff['agent']}"
+        result = collect_from_agent(handoff, query_records, max_results=args.max_results)
+    else:
+        try:
+            provider = resolve_provider(
+                args.provider,
+                api_key=args.api_key,
+                searxng_url=args.searxng_url,
+                timeout=args.timeout,
+            )
+        except SearchProviderConfigurationError as exc:
+            print(f"search: {exc}", file=sys.stderr)
+            return 2
 
-    result = collect_search(
-        provider,
-        query_records,
-        max_results=args.max_results,
-        country=args.country,
-        language=args.language,
-        freshness=args.freshness,
-        safesearch=args.safesearch,
-    )
+        provider_name = provider.name
+        result = collect_search(
+            provider,
+            query_records,
+            max_results=args.max_results,
+            country=args.country,
+            language=args.language,
+            freshness=args.freshness,
+            safesearch=args.safesearch,
+        )
     public_queries = [
         {
             "id": record["id"],
@@ -359,9 +536,26 @@ def main(argv: list[str] | None = None) -> int:
         }
         for record in query_records
     ]
+    notes = [
+        "Resultados de busca são candidatos, não fatos nem confirmação de identidade.",
+        "Capture e valide as páginas antes de citar qualquer achado.",
+        "Consultas sensíveis são mascaradas no envelope e bloqueadas por padrão.",
+    ]
+    if handoff is not None:
+        notes.insert(
+            0,
+            f"Descoberta feita fora do CLI por '{handoff['agent']}'. A Tarrafa não executou "
+            "a busca: registrou as consultas e deduplicou as URLs recebidas.",
+        )
+        if sensitive:
+            notes.append(
+                "Consulta sensível já enviada a provedor externo antes deste registro; "
+                "o envelope guarda apenas a forma mascarada."
+            )
+
     envelope = build_envelope(
         "search",
-        source={"provider": provider.name, "queries": public_queries},
+        source={"provider": provider_name, "queries": public_queries},
         items=result["items"],
         meta={
             **result["meta"],
@@ -372,11 +566,7 @@ def main(argv: list[str] | None = None) -> int:
             "urls_out": str(urls_out) if urls_out else None,
         },
         errors=result["errors"],
-        notes=[
-            "Resultados de busca são candidatos, não fatos nem confirmação de identidade.",
-            "Capture e valide as páginas antes de citar qualquer achado.",
-            "Consultas sensíveis são mascaradas no envelope e bloqueadas por padrão.",
-        ],
+        notes=notes,
     )
     if urls_out and urls_out.exists():
         try:
@@ -407,7 +597,7 @@ def main(argv: list[str] | None = None) -> int:
             pass
 
     print(
-        f"search: wrote {out}  provider={provider.name}  "
+        f"search: wrote {out}  provider={provider_name}  "
         f"queries={len(query_records)}  candidates={len(result['items'])}  "
         f"errors={len(result['errors'])}"
     )

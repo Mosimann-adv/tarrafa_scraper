@@ -8,6 +8,12 @@
   logradouro usa comparação mais estrita e falhas retornam exit code `1`.
 
 ### Added
+- **`tarrafa search --from-agent`** — registra descoberta feita fora do CLI (quando não há
+  provedor configurado) pelo mesmo funil de canonização, deduplicação e ranking. O envelope
+  marca `provider: agent:<nome>` e `requests: 0`, com nota explícita de que a Tarrafa não
+  executou a busca: a proveniência da âncora passa a existir em arquivo em vez de só no
+  chat. Consulta sensível é mascarada, não bloqueada — o envio externo já ocorreu e
+  bloquear apagaria o registro sem desfazer nada.
 - **`tarrafa search`** — descoberta web material-only com providers Brave/SearXNG,
   seleção `auto`, paginação, deduplicação canônica, proveniência por consulta,
   `--queries-file` e `--urls-out` para alimentar `page --urls-file`. Consultas com

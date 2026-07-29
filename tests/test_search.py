@@ -247,3 +247,176 @@ def test_main_rejects_same_json_and_urls_output(tmp_path: Path):
     assert code == 2
     assert not resolver.called
     assert not out.exists()
+
+
+# --- descoberta repassada de fora do CLI (--from-agent) -----------------------
+
+
+def _handoff(tmp_path: Path, payload: dict) -> Path:
+    path = tmp_path / "repasse.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def test_from_agent_records_provenance_without_provider(tmp_path):
+    """Sem provedor configurado, o registro ainda tem que existir."""
+    handoff = _handoff(
+        tmp_path,
+        {
+            "agent": "assistente X",
+            "note": "busca manual",
+            "queries": [
+                {
+                    "query": "\"Nome Completo\" cidade",
+                    "results": [
+                        {"url": "https://exemplo.test/a", "title": "A"},
+                        "https://exemplo.test/b",
+                    ],
+                }
+            ],
+        },
+    )
+    out = tmp_path / "search.json"
+    assert main(["--from-agent", str(handoff), "--out", str(out)]) == 0
+
+    envelope = json.loads(out.read_text(encoding="utf-8"))
+    assert envelope["source"]["provider"] == "agent:assistente X"
+    assert envelope["meta"]["requests"] == 0
+    assert envelope["meta"]["agent_note"] == "busca manual"
+    assert envelope["count"] == 2
+    assert "não executou a busca" in envelope["notes"][0]
+
+
+def test_from_agent_canonicalizes_and_deduplicates(tmp_path):
+    """A mesma URL com parâmetro de rastreio não pode virar dois candidatos."""
+    handoff = _handoff(
+        tmp_path,
+        {
+            "agent": "assistente X",
+            "queries": [
+                {
+                    "query": "consulta",
+                    "results": [
+                        "https://exemplo.test/pagina",
+                        "https://exemplo.test/pagina?utm_source=x&fbclid=y",
+                    ],
+                }
+            ],
+        },
+    )
+    out = tmp_path / "search.json"
+    assert main(["--from-agent", str(handoff), "--out", str(out)]) == 0
+
+    envelope = json.loads(out.read_text(encoding="utf-8"))
+    assert envelope["count"] == 1
+    assert envelope["meta"]["duplicates_removed"] == 1
+    assert len(envelope["items"][0]["discovered_by"]) == 2
+
+
+def test_from_agent_discards_invalid_url_as_partial(tmp_path):
+    handoff = _handoff(
+        tmp_path,
+        {
+            "agent": "assistente X",
+            "queries": [
+                {"query": "c", "results": ["https://exemplo.test/ok", "nao-e-url"]}
+            ],
+        },
+    )
+    out = tmp_path / "search.json"
+    assert main(["--from-agent", str(handoff), "--out", str(out)]) == 1
+
+    envelope = json.loads(out.read_text(encoding="utf-8"))
+    assert envelope["count"] == 1
+    assert envelope["meta"]["discarded_invalid_urls"] == 1
+    assert envelope["errors"]
+
+
+def test_from_agent_merges_repeated_query(tmp_path):
+    """Consulta repetida vira um bloco; o pareamento posicional não pode desalinhar."""
+    handoff = _handoff(
+        tmp_path,
+        {
+            "agent": "assistente X",
+            "queries": [
+                {"query": "mesma", "results": ["https://exemplo.test/1"]},
+                {"query": "mesma", "results": ["https://exemplo.test/2"]},
+            ],
+        },
+    )
+    out = tmp_path / "search.json"
+    assert main(["--from-agent", str(handoff), "--out", str(out)]) == 0
+
+    envelope = json.loads(out.read_text(encoding="utf-8"))
+    assert envelope["meta"]["queries"] == 1
+    assert envelope["count"] == 2
+    for item in envelope["items"]:
+        assert item["discovered_by"][0]["query_id"] == "Q001"
+
+
+def test_from_agent_requires_agent_field(tmp_path):
+    handoff = _handoff(tmp_path, {"queries": [{"query": "c", "results": []}]})
+    out = tmp_path / "search.json"
+    assert main(["--from-agent", str(handoff), "--out", str(out)]) == 2
+    assert not out.exists()
+
+
+def test_from_agent_rejects_malformed_json(tmp_path):
+    path = tmp_path / "repasse.json"
+    path.write_text("{isto nao e json", encoding="utf-8")
+    out = tmp_path / "search.json"
+    assert main(["--from-agent", str(path), "--out", str(out)]) == 2
+
+
+def test_from_agent_conflicts_with_query(tmp_path):
+    handoff = _handoff(
+        tmp_path,
+        {"agent": "x", "queries": [{"query": "c", "results": []}]},
+    )
+    out = tmp_path / "search.json"
+    code = main(["--from-agent", str(handoff), "--query", "outra", "--out", str(out)])
+    assert code == 2
+
+
+def test_from_agent_masks_sensitive_query_without_blocking(tmp_path):
+    """A busca externa já ocorreu: bloquear não desfaz o envio, só apaga o rastro."""
+    handoff = _handoff(
+        tmp_path,
+        {
+            "agent": "assistente X",
+            "queries": [
+                {
+                    "query": "fulano 123.456.789-09",
+                    "results": ["https://exemplo.test/x"],
+                }
+            ],
+        },
+    )
+    out = tmp_path / "search.json"
+    assert main(["--from-agent", str(handoff), "--out", str(out)]) == 0
+
+    envelope = json.loads(out.read_text(encoding="utf-8"))
+    consulta = envelope["source"]["queries"][0]
+    assert "123.456.789-09" not in json.dumps(envelope, ensure_ascii=False)
+    assert consulta["display"] == "fulano <CPF>"
+    assert consulta["sha256"] is None
+    assert any("provedor externo antes deste registro" in n for n in envelope["notes"])
+
+
+def test_from_agent_urls_out_feeds_page(tmp_path):
+    handoff = _handoff(
+        tmp_path,
+        {
+            "agent": "assistente X",
+            "queries": [
+                {"query": "c", "results": ["https://exemplo.test/a", "https://exemplo.test/b"]}
+            ],
+        },
+    )
+    out = tmp_path / "search.json"
+    urls = tmp_path / "urls.txt"
+    assert main(["--from-agent", str(handoff), "--urls-out", str(urls), "--out", str(out)]) == 0
+    assert urls.read_text(encoding="utf-8").splitlines() == [
+        "https://exemplo.test/a",
+        "https://exemplo.test/b",
+    ]
