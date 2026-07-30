@@ -51,7 +51,11 @@ def _default_storage_hint() -> Path:
     return Path.cwd() / "storage_state.json"
 
 
-def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
+def run_doctor(
+    *,
+    storage_hint: Path | None = None,
+    workspace_hint: Path | None = None,
+) -> dict[str, Any]:
     from tarrafa import __version__
 
     checks: list[dict[str, Any]] = []
@@ -185,7 +189,7 @@ def run_doctor(*, storage_hint: Path | None = None) -> dict[str, Any]:
     # Workspace (optional)
     from tarrafa.core.config import find_workspace_root
 
-    ws = find_workspace_root()
+    ws = workspace_hint.resolve() if workspace_hint is not None else find_workspace_root()
     if ws:
         add("workspace", True, str(ws), required=False)
     else:

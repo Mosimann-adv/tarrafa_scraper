@@ -7,6 +7,7 @@ import subprocess
 import sys
 from importlib.metadata import version
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -127,6 +128,17 @@ def test_doctor_runs():
 def test_doctor_default_storage_hint_is_cwd(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert _default_storage_hint() == tmp_path / "storage_state.json"
+
+
+def test_doctor_honours_global_workspace(tmp_path: Path):
+    workspace = tmp_path / "caso"
+    workspace.mkdir()
+    report = {"ok": True, "failed_required": [], "checks": []}
+
+    with patch("tarrafa.core.doctor.run_doctor", return_value=report) as mocked:
+        assert cli_main(["--workspace", str(workspace), "doctor"]) == 0
+
+    assert mocked.call_args.kwargs["workspace_hint"] == workspace.resolve()
 
 
 def test_doctor_marks_missing_optional_as_optional(capsys):

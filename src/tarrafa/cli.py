@@ -77,13 +77,17 @@ def _cmd_list() -> int:
 
 def _cmd_doctor(argv: list[str]) -> int:
     from tarrafa.core.doctor import print_doctor, run_doctor
+    from tarrafa.core.runtime import get_runtime
 
     storage = None
     if "--storage" in argv:
         i = argv.index("--storage")
         if i + 1 < len(argv):
             storage = Path(argv[i + 1])
-    report = run_doctor(storage_hint=storage)
+    report = run_doctor(
+        storage_hint=storage,
+        workspace_hint=get_runtime().workspace,
+    )
     return print_doctor(report)
 
 
