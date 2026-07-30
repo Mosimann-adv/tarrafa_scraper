@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-from tarrafa.tools.ig.scraper import instagram_media_urls, instagram_profile_url
+from tarrafa.tools.ig.scraper import (
+    instagram_media_urls,
+    instagram_profile_url,
+    instagram_reported_posts,
+)
 
 
 def test_instagram_profile_url_accepts_handle_and_canonicalizes_host():
@@ -34,3 +38,12 @@ def test_instagram_media_urls_canonicalizes_deduplicates_and_limits():
         "https://www.instagram.com/reel/ABC123/",
         "https://www.instagram.com/p/POST_2/",
     ]
+
+
+def test_instagram_reported_posts_reads_profile_count_only():
+    assert (
+        instagram_reported_posts("53 posts, 751 seguidores, 932 seguindo")
+        == 53
+    )
+    assert instagram_reported_posts("0 publicações · 2 seguidores") == 0
+    assert instagram_reported_posts("751 seguidores") is None

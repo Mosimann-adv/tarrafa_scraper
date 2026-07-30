@@ -184,6 +184,18 @@ def instagram_media_urls(values: list[str], *, limit: int = 12) -> list[str]:
     return out
 
 
+def instagram_reported_posts(*values: str | None) -> int | None:
+    """Extrai a contagem declarada no perfil sem confundi-la com seguidores."""
+    public_text = " ".join(str(value or "") for value in values)
+    match = re.search(
+        r"\b([\d.,]+)\s+(?:posts?|publica(?:ç|c)[õo]es)\b",
+        public_text,
+        re.IGNORECASE,
+    )
+    digits = re.sub(r"\D", "", match.group(1)) if match else ""
+    return int(digits) if digits else None
+
+
 def abs_comment_url(source_post: str, comment_id: str | None) -> str | None:
     if not comment_id:
         return None
@@ -1063,6 +1075,16 @@ def run_profile_inventory(args: argparse.Namespace, profile_url: str) -> int:
         try:
             page.goto(profile_url, wait_until="domcontentloaded")
             page.wait_for_timeout(2500)
+            if args.max_posts > 0:
+                try:
+                    page.wait_for_selector(
+                        "a[href*='/p/'],a[href*='/reel/'],a[href*='/tv/']",
+                        state="attached",
+                        timeout=10_000,
+                    )
+                except Exception:
+                    # A ausência será registrada como lacuna abaixo; não inventar URL.
+                    pass
         except Exception as exc:
             envelope = build_envelope(
                 "ig-profile",
@@ -1104,6 +1126,10 @@ def run_profile_inventory(args: argparse.Namespace, profile_url: str) -> int:
             list(info.get("media_urls") or []),
             limit=args.max_posts,
         )
+        reported_posts = instagram_reported_posts(
+            info.get("description"),
+            info.get("text_excerpt"),
+        )
         item = {
             "kind": "instagram_profile",
             "handle": f"@{handle}",
@@ -1115,12 +1141,18 @@ def run_profile_inventory(args: argparse.Namespace, profile_url: str) -> int:
             "text_excerpt": info.get("text_excerpt"),
             "media_urls": media,
             "media_count": len(media),
+            "reported_posts": reported_posts,
             "login_wall": login_wall,
             "screenshot": str(shot_path) if screenshot_error is None else None,
         }
         errors = [screenshot_error] if screenshot_error else []
         if login_wall:
             errors.append("Login wall detectado; perfil e mídias não foram considerados coletados.")
+        elif args.max_posts > 0 and reported_posts and not media:
+            errors.append(
+                "O perfil declara posts, mas a grade não expôs links após a espera; "
+                "inventário de mídias incompleto."
+            )
         envelope = build_envelope(
             "ig-profile",
             source={"url": profile_url},
