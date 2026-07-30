@@ -2,7 +2,7 @@
 name: tarrafa
 description: >
   Tarrafa — CLI de captura multi-fonte para inventário de material aberto e prova
-  documental. Tools: search, ig, page, site, feed, shot, video, album, dossier, cnpj, djen,
+  documental. Tools: search, profile, ig, page, site, feed, shot, video, album, dossier, cnpj, djen,
   datajud, stj, pdf-extract, order-risk, doctor.
   Use quando o pedido envolver: tarrafa, print/screenshot de página, salvar página como
   prova, comentários do Instagram, DJEN, comunicações de advogado ou parte, Datajud,
@@ -55,10 +55,12 @@ arquivo é frágil e a saída não tem o envelope.
 Ferramenta de browser do host serve para inspeção pontual, quando já está conectada.
 Nunca para coleta em massa.
 
-## Antes de capturar: a descoberta é sua
+## Antes de capturar: descoberta em profundidade
 
-As tools recebem URL, número ou nome que você **já tem**. Perfil de pessoa começa por
-âncoras — handle, site, CPF, OAB, CNJ — e achá-las é **trabalho seu, agora**.
+Perfil de pessoa começa por âncoras públicas — nome, handle, profissão, local e
+instituição. Para não parar na primeira página de resultados, use `profile`: ele prepara
+consultas variadas, pontua candidatos, abre páginas públicas, procura o domínio próprio,
+percorre sitemap/blog e inventaria artigos.
 
 **Busque você mesmo, com as ferramentas do seu ambiente.** Não peça ao usuário para
 configurar provedor, não pare para avisar que falta chave, não devolva "não consigo
@@ -72,11 +74,12 @@ handle. Varie as consultas: nome entre aspas, nome mais função, handle isolado
 que parecer relevante e leia — descobrir o site profissional costuma revelar registro
 profissional, formação e vínculo que nenhuma outra fonte entrega.
 
-**2. Registre o que encontrou**, para a origem das âncoras não morrer no chat:
+**2. Registre e aprofunde o que encontrou**, para a origem das âncoras não morrer no chat:
 
 ```{{TARRAFA_SHELL}}
-{{TARRAFA_CALL}} search --from-agent "PASTA/repasse.json" {{TARRAFA_CONT}}
-  --urls-out "PASTA/urls.txt" --out "PASTA/search.json"
+{{TARRAFA_CALL}} profile --name "Marina Alves" --handle "@marinaalves" {{TARRAFA_CONT}}
+  --profession "arquiteta" --keyword "urbanismo" {{TARRAFA_CONT}}
+  --from-agent "PASTA/repasse.json" --out-dir "PASTA/profile"
 ```
 
 ```json
@@ -86,12 +89,15 @@ profissional, formação e vínculo que nenhuma outra fonte entrega.
               "results": [{"url": "https://…", "title": "…", "snippet": "…"}]}]}
 ```
 
-Inclua **o que você descartou e por quê** na `note`. Descarte silencioso é lacuna.
+Inclua **o que você descartou e por quê** na `note`. Descarte silencioso é lacuna. Sem
+provedor próprio, execute também `queries_followup.txt` com a busca do ambiente e registre
+uma nova rodada. Não declare encerrada a descoberta sem avaliar domínio próprio e seção de
+artigos/sitemap, ou registrar honestamente que não foram encontrados.
 
-**3. Capture com o CLI.** O `urls.txt` alimenta o resto direto:
+**3. Capture com o CLI.** `candidate_urls.txt` alimenta o resto direto:
 
 ```{{TARRAFA_SHELL}}
-{{TARRAFA_CALL}} page --urls-file "PASTA/urls.txt" --out "PASTA/pages"
+{{TARRAFA_CALL}} page --urls-file "PASTA/profile/candidate_urls.txt" --out "PASTA/pages"
 {{TARRAFA_CALL}} shot --url "URL_DO_PERFIL" --out-dir "PASTA/shots" --id ig_perfil --dpr 2
 ```
 
@@ -99,13 +105,19 @@ A Tarrafa não finge ter buscado: o envelope marca `provider: agent:<nome>`,
 `requests: 0` e uma nota registrando que a busca ocorreu fora do CLI. Ela deduplica,
 canoniza e ranqueia como sempre.
 
+Para registrar apenas uma descoberta pontual, `search --from-agent` continua disponível;
+`profile` é o fluxo recomendado quando o pedido exige site próprio e produção autoral.
+
 **Nunca invente handle, URL ou resultado para preencher o arquivo.** Registrar busca que
 não aconteceu é pior que não registrar nada. Se você não tem como buscar no seu ambiente,
 aí sim diga isso ao usuário e peça as âncoras.
 
-Resultado de busca é **candidato, não fato**. Cruze fontes independentes antes de afirmar
-identidade: nome comum devolve homônimo com facilidade, e atribuir processo à pessoa
-errada é a falha mais cara desta ferramenta.
+Resultado de busca é **candidato, não fato**. Domínio e autoria também exigem confirmação.
+Cruze fontes independentes antes de afirmar identidade: nome comum devolve homônimo com
+facilidade, e atribuir processo à pessoa errada é a falha mais cara desta ferramenta.
+
+`profile` nunca aceita CPF, e-mail ou telefone como consulta. Esses dados podem ser usados
+depois, em ferramentas específicas e locais, mas não para ampliar exposição em buscadores.
 
 **Provedor próprio é opcional.** Quem tiver `BRAVE_SEARCH_API_KEY` ou `SEARXNG_URL` pode
 buscar dentro do CLI com `--query` e `--queries-file`, ganhando cota e velocidade. Não
@@ -116,6 +128,7 @@ sugira essa configuração por conta própria: ela não é pré-requisito de nad
 | Pedido | Comando |
 |--------|---------|
 | Descobrir URLs candidatas na web | `search` |
+| Aprofundar perfil, site próprio e artigos | `profile` |
 | Uma página pública (texto/links/facts) | `page` |
 | Crawl shallow de site (mesmo host) | `site` |
 | RSS/Atom | `feed` |
@@ -241,7 +254,7 @@ lacunas). Não faz busca na web e não inventa biografia. Nunca embuta print de 
 
 ## Envelope de saída
 
-`search` / `page` / `site` / `feed` retornam: `tool`, `version`, `collected_at`, `source`, `meta`,
+`search` / `profile` / `page` / `site` / `feed` retornam: `tool`, `version`, `collected_at`, `source`, `meta`,
 `count`, `items[]`, `errors[]`, `notes[]`.
 
 ## Exit codes

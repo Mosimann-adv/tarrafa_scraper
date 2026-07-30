@@ -38,7 +38,10 @@ _HINTS: dict[str, str] = {
     "yt-dlp": "-> pip install -e '.[av]'  (optional for tarrafa video --download)",
     "ffmpeg": "-> install ffmpeg and add to PATH (optional for video frames)",
     "storage_state.json": "-> tarrafa ig … --save-storage ./storage_state.json (optional, IG only)",
-    "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "-> put token in ~/.tarrafa/.env or <repo>/.env (optional)",
+    "PLAYWRIGHT_MCP_EXTENSION_TOKEN": (
+        "-> copie o token exibido pela extensão no perfil atual para ~/.tarrafa/.env, "
+        "remova cópias divergentes e reinicie o cliente/servidor MCP (opcional)"
+    ),
     "tomllib": "-> Python ≥ 3.11 or pip install tomli  (for tarrafa.toml)",
     "skills": "-> tarrafa skills install  (ensina a Tarrafa aos hosts de IA desta máquina)",
     "search-provider": (
@@ -138,11 +141,24 @@ def run_doctor(
     tok = token_status()
     if tok["present"]:
         src = ", ".join(tok["sources"]) if tok["sources"] else "env"
-        detail = f"set · {tok['masked']} · from {src}"
+        consistency = (
+            "fontes divergentes"
+            if tok.get("conflicting_sources")
+            else "fontes consistentes"
+        )
+        detail = (
+            f"set · {tok['masked']} · fp={tok.get('fingerprint')} · {consistency} · "
+            f"from {src} · presença local apenas; validade não testada contra a extensão"
+        )
     else:
         cands = " | ".join(tok["candidates"])
         detail = f"absent (optional; put PLAYWRIGHT_MCP_EXTENSION_TOKEN in {cands})"
-    add("PLAYWRIGHT_MCP_EXTENSION_TOKEN", bool(tok["present"]), detail, required=False)
+    add(
+        "PLAYWRIGHT_MCP_EXTENSION_TOKEN",
+        bool(tok["present"]) and not bool(tok.get("conflicting_sources")),
+        detail,
+        required=False,
+    )
 
     # Provedor próprio de busca é opcional; descoberta externa continua disponível.
     import os

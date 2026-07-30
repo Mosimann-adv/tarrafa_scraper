@@ -190,6 +190,15 @@ def test_provider_path_stays_documented_but_optional():
     assert "Provedor próprio é opcional" in section
 
 
+def test_skill_documents_deep_profile_discovery():
+    text = skills.render(shell="bash")
+    section = text.split("## Antes de capturar")[1].split("## Tools")[0]
+    assert "profile --name" in section
+    assert "queries_followup.txt" in section
+    assert "sitemap" in section
+    assert "nunca aceita CPF, e-mail ou telefone" in section
+
+
 def test_public_docs_keep_search_providers_optional():
     root = Path(__file__).resolve().parents[1]
     readme = (root / "README.md").read_text(encoding="utf-8")

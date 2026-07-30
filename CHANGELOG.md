@@ -2,7 +2,15 @@
 
 ## Unreleased
 
+### Security
+- **`tarrafa profile`** — impede CPF, e-mail e telefone nas consultas e limita a coleta a
+  páginas públicas; dados pessoais reais não são embutidos em código, testes ou exemplos.
+- **Playwright MCP extension** — `doctor` compara apenas fingerprints das cópias locais do
+  token, sem exibir o segredo, e avisa sobre arquivos divergentes e reinício do cliente.
+
 ### Fixed
+- **Diagnóstico do token Playwright MCP** — explica que o token pertence ao perfil atual
+  do navegador e distingue presença local de validação real da conexão com a extensão.
 - **`tarrafa search --from-agent`** — exige declaração sobre descartes no `note` e
   separa nos metadados resultados recebidos, processados e truncados por
   `--max-results`; README, `.env.example` e `doctor` passam a tratar Brave/SearXNG
@@ -12,6 +20,10 @@
   logradouro usa comparação mais estrita e falhas retornam exit code `1`.
 
 ### Added
+- **`tarrafa profile`** — descoberta iterativa de perfis com matriz de consultas,
+  ranking de candidatos, segunda rodada por domínio, captura de páginas públicas,
+  sitemap/crawl de sites candidatos, inventário de artigos e matriz de cobertura. Sem
+  provedor, registra consultas pendentes para novo repasse do agente.
 - **`tarrafa search --from-agent`** — registra descoberta feita fora do CLI (quando não há
   provedor configurado) pelo mesmo funil de canonização, deduplicação e ranking. O envelope
   marca `provider: agent:<nome>` e `requests: 0`, com nota explícita de que a Tarrafa não

@@ -29,6 +29,7 @@ Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or cas
 |--------|---------|
 | Comentários IG + permalink `/c/` | `tarrafa ig` |
 | Descobrir URLs candidatas na web | `tarrafa search` |
+| Aprofundar perfil, site próprio e artigos | `tarrafa profile` |
 | Uma página pública (texto/links/facts) | `tarrafa page` |
 | Crawl shallow de site | `tarrafa site` |
 | RSS/Atom | `tarrafa feed` |
@@ -73,6 +74,9 @@ tarrafa search --query '"Nome Completo" cidade' --max-results 30 \
 # sem provedor: registre a descoberta feita fora do CLI (não a inventa)
 tarrafa search --from-agent "OUT_DIR/repasse.json" \
   --urls-out "OUT_DIR/urls.txt" --out "OUT_DIR/search.json"
+tarrafa profile --name "Marina Alves" --handle "@marinaalves" \
+  --profession "arquiteta" --keyword "urbanismo" \
+  --from-agent "OUT_DIR/repasse.json" --out-dir "OUT_DIR/profile"
 tarrafa page --url "URL" --out "OUT.json"
 tarrafa shot --url "URL" --out-dir "OUT_DIR" --id SHOT01 --full-page --dpr 2
 tarrafa album --dir "OUT_DIR" --out "OUT_DIR/album.html" --title "…" --kicker "Inventário visual"
@@ -141,6 +145,9 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 ```
 
 - `PLAYWRIGHT_MCP_EXTENSION_TOKEN` — opcional; só para MCP extension no host (ex.: Grok). O CLI **não depende** dele para coletar.
+- O token da extensão é específico do perfil atual do Chrome/Edge. Copie-o da UI nesse
+  perfil, evite cópias divergentes entre `~/.tarrafa/.env` e `<repo>/.env` e reinicie o
+  servidor/cliente MCP após alterar. `doctor` só compara fingerprints locais.
 - `BRAVE_SEARCH_API_KEY` — provedor oficial opcional para `tarrafa search`.
 - `SEARXNG_URL` — alternativa opcional; a instância precisa habilitar saída JSON.
 - O CLI chama `load_tarrafa_env()` no startup; **não sobrescreve** env já definido no processo.
@@ -177,6 +184,9 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
     descartado e por quê. Não peça ao usuário para configurar provedor: é opcional, não
     pré-requisito. Nunca invente handle, URL ou resultado para preencher o repasse; sem
     meio de buscar, peça a âncora ao usuário. Achado de busca é candidato a confirmar.
+19. `profile` aprofunda a descoberta em rodadas, abre somente páginas públicas, tenta
+    localizar site próprio e inventariar artigos. Nunca use CPF/e-mail/telefone como
+    consulta. Site e autoria permanecem candidatos até confirmação humana e cruzamento.
 
 ## Exit codes (common)
 

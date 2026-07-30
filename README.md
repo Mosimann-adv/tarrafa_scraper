@@ -392,6 +392,7 @@ Fluxo típico:
 | Quero… | Comando base |
 |--------|--------------|
 | Descobrir URLs na internet | `tarrafa search --query '"Nome" cidade' --out ./raw/search.json` |
+| Aprofundar perfil, site próprio e artigos | `tarrafa profile --name "Nome" --from-agent ./repasse.json --out-dir ./raw/profile` |
 | Texto e dados de uma URL | `tarrafa page --url URL --out ./raw/page.json` |
 | Várias URLs de uma vez | `tarrafa page --urls-file urls.txt --out ./raw/pages/` |
 | Print de tela | `tarrafa shot --url URL --out-dir ./shots --id DOC01` |
@@ -449,6 +450,7 @@ gravados no caminho informado pelo usuário.
 | `tarrafa init` | Cria workspace opcional (`tarrafa.toml` + pastas) |
 | `tarrafa ig` | Comentários Instagram → JSON com permalink `/c/{id}/` |
 | `tarrafa search` | Busca web → URLs candidatas com proveniência |
+| `tarrafa profile` | Descoberta iterativa → candidatos, sites, artigos e cobertura |
 | `tarrafa page` | Uma URL pública → texto + facts (meta / JSON-LD) |
 | `tarrafa site` | Crawl concorrente same-host (max pages / depth) |
 | `tarrafa feed` | RSS/Atom → envelope de entradas |
@@ -558,6 +560,29 @@ Brave e SearXNG não são pré-requisitos e não devem ser sugeridos por padrão
 são candidatos, não confirmação de identidade. CPF, e-mail e telefone são bloqueados
 quando a busca ocorre dentro do CLI; `--allow-sensitive-query` exige decisão explícita.
 A IA é opcional: `search` não chama modelo nem exige credencial de provedor de IA.
+
+### Descoberta aprofundada de perfil
+
+`profile` transforma a busca pontual em um ciclo verificável: combina nome, handle,
+profissão, local e palavras-chave; pontua candidatos; abre páginas públicas; cria
+consultas de segundo nível por domínio; percorre sites candidatos, sitemap e áreas de
+artigos; e registra cobertura e lacunas em `profile.json`.
+
+```bash
+# sem provedor próprio: a busca do ambiente entra pelo repasse
+tarrafa profile --name "Marina Alves" --handle "@marinaalves" \
+  --profession "arquiteta" --keyword "urbanismo" \
+  --from-agent ./repasse.json --out-dir ./out/profile
+
+# com Brave ou SearXNG já configurado: as rodadas seguintes rodam no CLI
+tarrafa profile --name "Marina Alves" --profession "arquiteta" \
+  --location "Curitiba" --out-dir ./out/profile
+```
+
+Sem provedor, `queries_followup.txt` registra as consultas adicionais que ainda precisam
+ser executadas e reapresentadas numa nova coleta. O comando nunca usa CPF, e-mail ou
+telefone como consulta; aceita apenas páginas públicas e não confirma sozinho que um site
+ou artigo pertence à pessoa.
 
 ### Página
 
@@ -729,6 +754,11 @@ tarrafa_scraper/
 ```env
 PLAYWRIGHT_MCP_EXTENSION_TOKEN=seu_token_aqui
 ```
+
+O token é específico do perfil atual do Chrome/Edge: copie o valor exibido pela extensão
+nesse mesmo perfil, mantenha uma única cópia preferencial em `~/.tarrafa/.env` e reinicie
+o servidor/cliente MCP depois de alterar. `tarrafa doctor` compara apenas as cópias locais
+por fingerprint; ele não valida a conexão viva com a extensão.
 
 Template: `.env.example`. Conferir com `tarrafa doctor` (token mascarado + `storage_state`).
 

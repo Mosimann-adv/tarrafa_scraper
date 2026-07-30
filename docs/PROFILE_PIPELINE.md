@@ -20,18 +20,30 @@ CASO/
 ## Ordem de coleta
 
 1. **Âncoras** — nome completo + handle e/ou cidade/função.
-2. **Web/IG** — bio, contagem, link na bio, reel relevante.
-   Os passos 1–2 **não têm tool** no CLI de hoje: confirme com `tarrafa list`; havendo
-   descoberta, ela tem prioridade. Não havendo, levante as âncoras com a busca do ambiente
-   e passe as URLs para `shot`/`page`/`ig`. Sem busca, peça ao usuário. Pular estes passos
-   e ir direto ao DJEN é o erro mais fácil de cometer aqui.
-3. **`tarrafa shot`** no perfil e no post/reel (path = `CASO/shots`).
-4. **`djen --papel parte --cpf`** quando houver CPF. Sem CPF, usar `--nome "Nome
+2. **Descoberta web aprofundada** — use `tarrafa profile` para diversificar consultas,
+   pontuar candidatos, abrir páginas públicas, procurar site próprio e inventariar
+   artigos/blog/sitemap. Sem provedor, faça a busca com as ferramentas do ambiente,
+   registre o primeiro repasse com `--from-agent` e execute também as consultas gravadas
+   em `queries_followup.txt`. Pular a segunda rodada e ir direto ao DJEN é uma lacuna.
+3. **Web/IG** — confirme bio, contagem, link na bio e reel relevante nos candidatos.
+4. **`tarrafa shot`** no perfil e no post/reel (path = `CASO/shots`).
+5. **`djen --papel parte --cpf`** quando houver CPF. Sem CPF, usar `--nome "Nome
    Completo"` e `--texto "handle"` (handles quase nunca saem no DJEN; o nome sim).
-5. **`--follow-datajud`** ou `datajud` nos CNJs com nexo.
-6. **`cnpj`** só com número; **não** atribuir QSA ao alvo sem CPF coerente.
-7. **`pdf-extract --dir raw/processos`** quando o advogado baixar autos.
-8. **V1** `dossier` (manifest); **V2** anexo PDF judicial se pedido (Times, sem paths internos).
+6. **`--follow-datajud`** ou `datajud` nos CNJs com nexo.
+7. **`cnpj`** só com número; **não** atribuir QSA ao alvo sem CPF coerente.
+8. **`pdf-extract --dir raw/processos`** quando o advogado baixar autos.
+9. **V1** `dossier` (manifest); **V2** anexo PDF judicial se pedido (Times, sem paths internos).
+
+```powershell
+tarrafa profile --name "Marina Alves" --handle "@marinaalves" `
+  --profession "arquiteta" --keyword "urbanismo" `
+  --from-agent "CASO\raw\repasse.json" --out-dir "CASO\raw\profile"
+```
+
+Só considere a descoberta suficientemente profunda quando a matriz de cobertura registrar
+consultas por nome/handle/contexto, domínio próprio avaliado, páginas institucionais
+abertas, seção de artigos ou sitemap verificados e lacunas explicitadas. `profile` não usa
+CPF, e-mail ou telefone como consulta e não transforma candidato em identidade confirmada.
 
 ## Instagram — o que falha e o que fazer
 

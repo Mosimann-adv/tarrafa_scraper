@@ -48,9 +48,33 @@ def test_mask_secret():
     assert envmod.mask_secret(None) == "(absent)"
     # synthetic token-shaped string only (not a real secret)
     assert "…" in envmod.mask_secret("dummy_token_abcdefghijklmnopqr")
+    assert len(envmod.secret_fingerprint("dummy_token_abcdefghijklmnopqr") or "") == 12
 
 
 def test_playwright_token_helper(monkeypatch):
     monkeypatch.setenv(envmod.PLAYWRIGHT_MCP_EXTENSION_TOKEN, "tok123456789")
     envmod._LOADED = True  # skip file reload path noise
     assert envmod.playwright_extension_token() == "tok123456789"
+
+
+def test_token_status_detects_conflicting_files_without_exposing_values(
+    tmp_path: Path,
+    monkeypatch,
+):
+    first = tmp_path / "user.env"
+    second = tmp_path / "project.env"
+    first.write_text("PLAYWRIGHT_MCP_EXTENSION_TOKEN=synthetic_token_alpha\n", encoding="utf-8")
+    second.write_text("PLAYWRIGHT_MCP_EXTENSION_TOKEN=synthetic_token_beta\n", encoding="utf-8")
+    monkeypatch.setattr(envmod, "env_file_candidates", lambda: [first, second])
+    monkeypatch.setenv(
+        envmod.PLAYWRIGHT_MCP_EXTENSION_TOKEN,
+        "synthetic_token_alpha",
+    )
+    envmod._LOADED = True
+
+    status = envmod.token_status()
+
+    assert status["conflicting_sources"] is True
+    assert status["active_matches_file"] is True
+    assert "synthetic_token_alpha" not in repr(status)
+    assert "synthetic_token_beta" not in repr(status)

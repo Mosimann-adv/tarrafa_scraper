@@ -12,6 +12,7 @@ Call ``load_tarrafa_env()`` once at CLI startup.
 """
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 from typing import Iterable
@@ -119,11 +120,20 @@ def mask_secret(value: str | None, *, keep: int = 4) -> str:
     return f"{value[:keep]}…{value[-keep:]} (len={len(value)})"
 
 
+def secret_fingerprint(value: str | None) -> str | None:
+    """Fingerprint curto para comparar segredos sem imprimi-los."""
+    if not value:
+        return None
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+
+
 def token_status() -> dict[str, object]:
     """For doctor / diagnostics (never prints full token)."""
     load_tarrafa_env()
     raw = os.environ.get(PLAYWRIGHT_MCP_EXTENSION_TOKEN) or ""
     sources: list[str] = []
+    source_fingerprints: list[dict[str, str]] = []
+    source_values: list[str] = []
     for path in env_file_candidates():
         if not path.is_file():
             continue
@@ -131,17 +141,37 @@ def token_status() -> dict[str, object]:
             parsed = parse_dotenv(path.read_text(encoding="utf-8-sig"))
         except OSError:
             continue
-        if PLAYWRIGHT_MCP_EXTENSION_TOKEN in parsed and parsed[PLAYWRIGHT_MCP_EXTENSION_TOKEN]:
+        value = parsed.get(PLAYWRIGHT_MCP_EXTENSION_TOKEN) or ""
+        if value:
             sources.append(str(path))
+            source_values.append(value)
+            source_fingerprints.append(
+                {
+                    "source": str(path),
+                    "fingerprint": secret_fingerprint(value) or "",
+                }
+            )
     if raw and PLAYWRIGHT_MCP_EXTENSION_TOKEN in os.environ:
-        # could also be process/User env only
-        if not sources:
-            sources.append("process environment")
+        # Se o valor ativo não coincide com arquivo algum, veio do processo/host.
+        if not source_values or raw not in source_values:
+            sources.insert(0, "process environment")
+            source_fingerprints.insert(
+                0,
+                {
+                    "source": "process environment",
+                    "fingerprint": secret_fingerprint(raw) or "",
+                },
+            )
+    distinct = {entry["fingerprint"] for entry in source_fingerprints if entry["fingerprint"]}
     return {
         "name": PLAYWRIGHT_MCP_EXTENSION_TOKEN,
         "present": bool(raw),
         "masked": mask_secret(raw if raw else None),
+        "fingerprint": secret_fingerprint(raw),
         "sources": sources,
+        "source_fingerprints": source_fingerprints,
+        "conflicting_sources": len(distinct) > 1,
+        "active_matches_file": bool(raw and raw in source_values),
         "candidates": [str(p) for p in env_file_candidates()],
     }
 

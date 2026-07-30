@@ -182,6 +182,7 @@ def test_list_includes_init(capsys):
     output = capsys.readouterr().out
     assert "init" in output
     assert "search" in output
+    assert "profile" in output
 
 
 def test_doctor_does_not_treat_search_provider_as_prerequisite():
