@@ -566,14 +566,18 @@ A IA é opcional: `search` não chama modelo nem exige credencial de provedor de
 `profile` transforma a busca pontual em um ciclo verificável: combina nome, handle,
 profissão, local e palavras-chave; pontua candidatos; abre páginas públicas; cria
 consultas de segundo nível por domínio; percorre sites candidatos, sitemap e áreas de
-artigos; e registra cobertura e lacunas em `profile.json`. Uma ficha navegável
-`profile.html` é gerada por padrão no mesmo diretório.
+artigos; e registra cobertura e lacunas em `profile.json`. Havendo handle ou URL candidata,
+executa `tarrafa ig` como etapa própria: inventaria o perfil, grava print, descobre
+posts/reels e coleta seus comentários. LinkedIn ou outra rede não satisfaz
+`instagram_profile`. Uma ficha navegável `profile.html` é gerada por padrão no mesmo
+diretório.
 
 ```bash
 # sem provedor próprio: a busca do ambiente entra pelo repasse
 tarrafa profile --name "Marina Alves" --handle "@marinaalves" \
   --profession "arquiteta" --keyword "urbanismo" \
-  --from-agent ./repasse.json --out-dir ./out/profile
+  --from-agent ./repasse.json --out-dir ./out/profile \
+  --ig-storage-state ./storage_state.json --ig-expand-replies
 
 # com Brave ou SearXNG já configurado: as rodadas seguintes rodam no CLI
 tarrafa profile --name "Marina Alves" --profession "arquiteta" \
@@ -589,7 +593,9 @@ ser executadas e reapresentadas numa nova coleta. O comando nunca usa CPF, e-mai
 telefone como consulta; aceita apenas páginas públicas e não confirma sozinho que um site
 ou artigo pertence à pessoa. Use `--html-out CAMINHO` para escolher outro destino. O
 comando inclui no inventário publicações externas capturadas, sem misturá-las com conteúdo
-do domínio próprio e mantendo a relação como candidata.
+do domínio próprio e mantendo a relação como candidata. A etapa IG é padrão; use
+`--no-instagram` apenas por decisão explícita. Sem sessão válida, a matriz registra
+`blocked`/login wall e a execução retorna parcial em vez de fingir cobertura.
 
 ### Página
 
@@ -711,6 +717,10 @@ tarrafa feed --url https://example.com/feed.xml --out ./out/feed.json --max-entr
 # IG: login nativo uma vez (nunca Facebook OIDC / senha automatizada)
 tarrafa ig --url https://www.instagram.com/accounts/login/ --headed --max-comments 0 \
   --save-storage ./storage_state.json --out ./_login_dummy.json
+# perfil: metadados públicos, print e até 12 links recentes
+tarrafa ig --url https://www.instagram.com/HANDLE/ --out ./ig/profile.json \
+  --profile-shot ./ig/profile.png --storage-state ./storage_state.json
+# post/reel: comentários e permalinks /c/
 tarrafa ig --url https://www.instagram.com/p/SHORTCODE/ --out ./comments.json \
   --storage-state ./storage_state.json --expand-replies --headed
 ```

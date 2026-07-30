@@ -27,7 +27,7 @@ Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or cas
 
 | Pedido | Comando |
 |--------|---------|
-| Comentários IG + permalink `/c/` | `tarrafa ig` |
+| Perfil IG (inventário + print) ou comentários + permalink `/c/` | `tarrafa ig` |
 | Descobrir URLs candidatas na web | `tarrafa search` |
 | Aprofundar perfil, site próprio e artigos | `tarrafa profile` |
 | Uma página pública (texto/links/facts) | `tarrafa page` |
@@ -77,7 +77,7 @@ tarrafa search --from-agent "OUT_DIR/repasse.json" \
 tarrafa profile --name "Marina Alves" --handle "@marinaalves" \
   --profession "arquiteta" --keyword "urbanismo" \
   --from-agent "OUT_DIR/repasse.json" --out-dir "OUT_DIR/profile"
-# profile gera OUT_DIR/profile/profile.html por padrão; use --no-html só em integração JSON
+# profile gera profile.html e acopla tarrafa ig; use --no-html só em integração JSON
 tarrafa page --url "URL" --out "OUT.json"
 tarrafa shot --url "URL" --out-dir "OUT_DIR" --id SHOT01 --full-page --dpr 2
 tarrafa album --dir "OUT_DIR" --out "OUT_DIR/album.html" --title "…" --kicker "Inventário visual"
@@ -191,6 +191,12 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 20. `profile` deve encerrar com `profile.json` **e `profile.html` por padrão**. Só use
     `--no-html` quando o pedido for expressamente machine-only. Publicação externa
     capturada entra como autoria candidata, separada do conteúdo do domínio próprio.
+21. `profile` trata Instagram como cobertura independente. Havendo `--handle` ou perfil
+    candidato, deve chamar `tarrafa ig` para inventário/print, passar posts/reels
+    descobertos ao coletor de comentários e registrar `instagram_profile` e
+    `instagram_posts`. Outra rede social nunca satisfaz essas categorias. Login wall é
+    execução parcial explícita; não embutir seu print no HTML. `--no-instagram` só por
+    decisão expressa.
 
 ## Exit codes (common)
 

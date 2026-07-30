@@ -6,12 +6,39 @@ from pathlib import Path
 from unittest.mock import patch
 
 from tarrafa.tools.profile.scraper import (
+    build_coverage,
     generate_initial_queries,
     inventory_articles,
     inventory_external_articles,
     main,
     score_candidate,
 )
+
+
+def test_instagram_coverage_is_independent_from_other_social_networks():
+    coverage = build_coverage(
+        ranked=[
+            {
+                "domain_class": "social_or_platform",
+                "canonical_url": "https://www.linkedin.com/in/pessoa-exemplo/",
+            }
+        ],
+        captures=[],
+        sites=[],
+        articles=[],
+        instagram={
+            "state": "blocked",
+            "posts_state": "no_urls",
+            "posts": [],
+        },
+        rounds_executed=1,
+        followup_queries_pending=0,
+    )
+    by_category = {row["category"]: row for row in coverage}
+
+    assert by_category["social_profiles"]["state"] == "found"
+    assert by_category["instagram_profile"]["state"] == "blocked"
+    assert by_category["instagram_posts"]["state"] == "missing"
 
 
 def test_generate_initial_queries_diversifies_name_handle_and_content():
@@ -210,9 +237,41 @@ def test_profile_from_agent_emits_followups_and_expands_site(tmp_path: Path):
         "errors": [],
     }
 
+    def fake_ig_main(argv):
+        out_path = Path(argv[argv.index("--out") + 1])
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        if out_path.name == "profile.json":
+            out_path.write_text(
+                json.dumps(
+                    {
+                        "count": 1,
+                        "items": [
+                            {
+                                "kind": "instagram_profile",
+                                "handle": "@marinaluz",
+                                "media_urls": [
+                                    "https://www.instagram.com/reel/EXEMPLO42/"
+                                ],
+                                "media_count": 1,
+                                "login_wall": False,
+                            }
+                        ],
+                        "meta": {"login_wall": False},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return 0
+        out_path.write_text(
+            json.dumps({"count": 2, "comments": [{"text": "a"}, {"text": "b"}]}),
+            encoding="utf-8",
+        )
+        return 0
+
     with (
         patch("tarrafa.tools.profile.scraper.capture_page", return_value=fake_capture),
         patch("tarrafa.tools.profile.scraper.crawl", return_value=fake_crawl),
+        patch("tarrafa.tools.profile.scraper.ig_main", side_effect=fake_ig_main),
         patch(
             "tarrafa.tools.profile.scraper._discover_sitemap_urls",
             return_value=(
@@ -245,6 +304,14 @@ def test_profile_from_agent_emits_followups_and_expands_site(tmp_path: Path):
     assert payload["meta"]["followup_queries_pending"] >= 1
     assert item["sites"][0]["relationship"] == "strong_candidate"
     assert item["authored_content"][0]["author"] == "Marina Luz"
+    assert item["instagram"]["state"] == "found"
+    assert item["instagram"]["posts_state"] == "complete"
+    assert item["instagram"]["posts"][0]["comments"] == 2
+    instagram_coverage = {
+        row["category"]: row for row in item["coverage"] if row["category"].startswith("instagram")
+    }
+    assert instagram_coverage["instagram_profile"]["state"] == "found"
+    assert instagram_coverage["instagram_posts"]["state"] == "found"
     assert payload["meta"]["html"]["generated"] is True
     assert item["html"]["sources"] >= 2
     assert (out / "profile.html").is_file()

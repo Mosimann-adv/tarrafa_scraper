@@ -82,9 +82,12 @@ profissional, formação e vínculo que nenhuma outra fonte entrega.
   --from-agent "PASTA/repasse.json" --out-dir "PASTA/profile"
 ```
 
-`profile` gera **`profile.json` e `profile.html` por padrão**. Não encerre um pedido de
-perfil entregando só o JSON. Use `--no-html` apenas quando o usuário pedir integração
-machine-only; `--html-out` escolhe outro destino.
+`profile` gera **`profile.json` e `profile.html` por padrão**. Havendo handle ou perfil
+IG candidato, ele também chama `ig`: inventaria o perfil, grava print, descobre
+posts/reels e coleta comentários. LinkedIn ou outra plataforma não satisfaz
+`instagram_profile`. Não encerre um pedido de perfil entregando só o JSON. Use
+`--no-html` apenas quando o usuário pedir integração machine-only; `--html-out` escolhe
+outro destino. `--no-instagram` exige decisão expressa.
 
 ```json
 {"agent": "quem buscou",
@@ -98,11 +101,14 @@ provedor próprio, execute também `queries_followup.txt` com a busca do ambient
 uma nova rodada. Não declare encerrada a descoberta sem avaliar domínio próprio e seção de
 artigos/sitemap, ou registrar honestamente que não foram encontrados.
 
-**3. Capture com o CLI.** `candidate_urls.txt` alimenta o resto direto:
+**3. Capture com o CLI.** `candidate_urls.txt` alimenta o resto direto. A etapa Instagram
+já é acoplada ao `profile`; passe `--ig-storage-state` quando houver sessão:
 
 ```{{TARRAFA_SHELL}}
 {{TARRAFA_CALL}} page --urls-file "PASTA/profile/candidate_urls.txt" --out "PASTA/pages"
-{{TARRAFA_CALL}} shot --url "URL_DO_PERFIL" --out-dir "PASTA/shots" --id ig_perfil --dpr 2
+{{TARRAFA_CALL}} profile --name "Nome Exemplo" --handle "@perfil.exemplo" {{TARRAFA_CONT}}
+  --from-agent "PASTA/repasse.json" --out-dir "PASTA/profile" {{TARRAFA_CONT}}
+  --ig-storage-state "SESSAO.json" --ig-expand-replies
 ```
 
 A Tarrafa não finge ter buscado: o envelope marca `provider: agent:<nome>`,
@@ -191,6 +197,11 @@ usuário faz login **nativo** na janela headed; nunca digite a senha por ele.
 ## Instagram (`ig`)
 
 ```{{TARRAFA_SHELL}}
+# perfil: inventário, print e descoberta de posts/reels
+{{TARRAFA_CALL}} ig --url "https://www.instagram.com/HANDLE/" {{TARRAFA_CONT}}
+  --out "PASTA/instagram/profile.json" --profile-shot "PASTA/instagram/profile.png" {{TARRAFA_CONT}}
+  --storage-state "SESSAO.json"
+
 # amostra / smoke
 {{TARRAFA_CALL}} ig --url "URL_DO_POST" --out "PASTA/ig.json" {{TARRAFA_CONT}}
   --storage-state "SESSAO.json" --max-comments 15
@@ -201,7 +212,8 @@ usuário faz login **nativo** na janela headed; nunca digite a senha por ele.
 ```
 
 Headed só se a sessão falhar ou cair em login wall (exit 5). Se aparecer
-password-reset ou fluxo do Facebook, aborte.
+password-reset ou fluxo do Facebook, aborte. No fluxo `profile`, login wall deixa
+`instagram_profile: blocked` e exit parcial; nunca use outra rede para preencher a lacuna.
 
 Ao reportar: `count`, `public_comment_count`, `with_comment_id`, exit code e o caminho do
 JSON. Não afirme exaustividade quando a cobertura foi parcial.

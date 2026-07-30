@@ -22,6 +22,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -72,7 +73,30 @@ LIKES_ONLY_RE = re.compile(
     re.I,
 )
 COMMENT_ID_FROM_URL_RE = re.compile(r"/c/(\d+)/?")
-SHORTCODE_RE = re.compile(r"instagram\.com/(?:p|reel|tv)/([^/?#]+)", re.I)
+SHORTCODE_RE = re.compile(
+    r"instagram\.com/(?:[A-Za-z0-9._]+/)?(?:p|reel|tv)/([^/?#]+)",
+    re.I,
+)
+PROFILE_PATH_RE = re.compile(r"^/([A-Za-z0-9._]{1,30})/?$")
+PROFILE_RESERVED_PATHS = {
+    "accounts",
+    "about",
+    "api",
+    "developer",
+    "directory",
+    "direct",
+    "emails",
+    "explore",
+    "legal",
+    "p",
+    "privacy",
+    "reel",
+    "reels",
+    "stories",
+    "terms",
+    "tv",
+    "web",
+}
 
 # Known IG comment GraphQL doc_ids / path fragments (best-effort; IG rotates them)
 GRAPHQL_HINTS = (
@@ -102,6 +126,62 @@ def utc_now_iso() -> str:
 def shortcode_from_url(url: str) -> str | None:
     m = SHORTCODE_RE.search(url or "")
     return m.group(1) if m else None
+
+
+def instagram_profile_url(value: str) -> str | None:
+    """Normaliza handle/URL de perfil; rejeita posts e rotas reservadas."""
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    if raw.startswith("@"):
+        raw = raw[1:]
+    if "://" not in raw and "/" not in raw:
+        handle = raw.strip()
+        if not re.fullmatch(r"[A-Za-z0-9._]{1,30}", handle):
+            return None
+        if handle.casefold() in PROFILE_RESERVED_PATHS:
+            return None
+        return f"https://www.instagram.com/{handle}/"
+
+    if "://" not in raw:
+        raw = f"https://{raw.lstrip('/')}"
+    try:
+        parts = urlsplit(raw)
+    except ValueError:
+        return None
+    host = (parts.hostname or "").casefold()
+    if host not in {"instagram.com", "www.instagram.com"}:
+        return None
+    match = PROFILE_PATH_RE.fullmatch(parts.path or "/")
+    if not match:
+        return None
+    handle = match.group(1)
+    if handle.casefold() in PROFILE_RESERVED_PATHS:
+        return None
+    return urlunsplit(("https", "www.instagram.com", f"/{handle}/", "", ""))
+
+
+def instagram_media_urls(values: list[str], *, limit: int = 12) -> list[str]:
+    """Canonicaliza e deduplica URLs de posts/reels/TV na ordem recebida."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for value in values:
+        match = re.search(
+            r"https?://(?:www\.)?instagram\.com/"
+            r"(?:[A-Za-z0-9._]+/)?(p|reel|tv)/([A-Za-z0-9_-]+)",
+            value or "",
+            re.IGNORECASE,
+        )
+        if not match:
+            continue
+        canonical = f"https://www.instagram.com/{match.group(1).lower()}/{match.group(2)}/"
+        if canonical in seen:
+            continue
+        seen.add(canonical)
+        out.append(canonical)
+        if len(out) >= max(0, limit):
+            break
+    return out
 
 
 def abs_comment_url(source_post: str, comment_id: str | None) -> str | None:
@@ -846,6 +926,232 @@ def detect_login_wall_from_dom(dom_info: dict[str, Any]) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Inventário de perfil
+# ---------------------------------------------------------------------------
+
+PROFILE_EXTRACT_JS = r"""
+() => {
+  const abs = (href) => {
+    try { return new URL(href, location.origin).href; } catch { return href || ""; }
+  };
+  const media = [];
+  const seen = new Set();
+  for (const a of document.querySelectorAll("a[href]")) {
+    const url = abs(a.getAttribute("href"));
+    if (!/instagram\.com\/(?:[A-Za-z0-9._]+\/)?(?:p|reel|tv)\//i.test(url) || seen.has(url)) continue;
+    seen.add(url);
+    media.push(url);
+  }
+  const meta = (selector) => document.querySelector(selector)?.getAttribute("content") || null;
+  const profileText = (
+    document.querySelector("main")?.innerText ||
+    document.body?.innerText ||
+    ""
+  ).replace(/\s+/g, " ").trim();
+  const loginText = Array.from(document.querySelectorAll("a,button"))
+    .map((el) => (el.innerText || "").trim())
+    .filter(Boolean)
+    .slice(0, 100)
+    .join(" | ");
+  return {
+    href: location.href,
+    title: document.title || null,
+    description: meta('meta[name="description"]') || meta('meta[property="og:description"]'),
+    og_title: meta('meta[property="og:title"]'),
+    image: meta('meta[property="og:image"]'),
+    media_urls: media,
+    text_excerpt: profileText.slice(0, 2000),
+    login_wall:
+      /\/accounts\/(?:login|emailsignup)/i.test(location.href) ||
+      /\b(?:entrar|entre para ver|log in|sign up|cadastre-se)\b/i.test(loginText),
+  };
+}
+"""
+
+PROFILE_MARK_CONTENT_JS = r"""
+(handle) => {
+  document.querySelectorAll("[data-tarrafa-ig-profile]").forEach(
+    (el) => el.removeAttribute("data-tarrafa-ig-profile")
+  );
+  const mediaSelector = "a[href*='/p/'],a[href*='/reel/'],a[href*='/tv/']";
+  const firstMedia = document.querySelector(mediaSelector);
+  if (!firstMedia) return false;
+  const wanted = String(handle || "").replace(/^@/, "").toLowerCase();
+  let node = firstMedia;
+  let chosen = null;
+  while (node && node !== document.body) {
+    const rect = node.getBoundingClientRect();
+    const mediaCount = node.querySelectorAll?.(mediaSelector).length || 0;
+    const text = (node.innerText || "").toLowerCase();
+    if (rect.width >= 600 && mediaCount >= 3 && (!wanted || text.includes(wanted))) {
+      chosen = node;
+      break;
+    }
+    node = node.parentElement;
+  }
+  if (!chosen) return false;
+  chosen.setAttribute("data-tarrafa-ig-profile", "1");
+  for (const el of document.querySelectorAll("body *")) {
+    const text = (el.innerText || "").trim();
+    if (!/^Mensagens$/i.test(text)) continue;
+    const style = getComputedStyle(el);
+    if (style.position === "fixed") el.style.setProperty("visibility", "hidden", "important");
+  }
+  return true;
+}
+"""
+
+
+def run_profile_inventory(args: argparse.Namespace, profile_url: str) -> int:
+    """Coleta metadados públicos, print e links de mídia de um perfil IG."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print(
+            "ERRO: playwright não instalado. Rode:\n"
+            "  pip install -r requirements.txt\n"
+            "  playwright install chromium",
+            file=sys.stderr,
+        )
+        return 2
+
+    from tarrafa.core.envelope import build_envelope
+
+    out_path = Path(args.out).resolve()
+    shot_path = (
+        Path(args.profile_shot).resolve()
+        if args.profile_shot
+        else out_path.with_suffix(".png")
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    shot_path.parent.mkdir(parents=True, exist_ok=True)
+    storage_state = args.storage_state
+
+    print(f"[ig-profile] source={profile_url}")
+    print(f"[ig-profile] out={out_path} shot={shot_path}")
+    print(f"[ig-profile] storage_state={storage_state!r} headed={args.headed}")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=not args.headed)
+        context_kwargs: dict[str, Any] = {
+            "locale": "pt-BR",
+            "user_agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            ),
+            "viewport": {"width": 1280, "height": 1000},
+        }
+        storage_loaded = bool(storage_state and Path(storage_state).is_file())
+        if storage_loaded:
+            context_kwargs["storage_state"] = storage_state
+        context = browser.new_context(**context_kwargs)
+        page = context.new_page()
+        page.set_default_timeout(PAGE_TIMEOUT_MS)
+
+        def _route_handler(route, request):
+            if url_is_dangerous_auth_flow(request.url):
+                print(
+                    f"[ig-profile] BLOQUEADO fluxo OIDC/reset: {request.url[:120]}",
+                    file=sys.stderr,
+                )
+                route.abort()
+                return
+            route.continue_()
+
+        page.route("**/*", _route_handler)
+        try:
+            page.goto(profile_url, wait_until="domcontentloaded")
+            page.wait_for_timeout(2500)
+        except Exception as exc:
+            envelope = build_envelope(
+                "ig-profile",
+                source={"url": profile_url},
+                errors=[f"navigation: {type(exc).__name__}: {exc}"],
+                meta={"storage_state_used": storage_loaded},
+            )
+            write_json(out_path, envelope)
+            browser.close()
+            print(f"[ig-profile] goto falhou: {exc}", file=sys.stderr)
+            return 3
+
+        if url_is_dangerous_auth_flow(page.url):
+            envelope = build_envelope(
+                "ig-profile",
+                source={"url": profile_url},
+                errors=["Navegação caiu em fluxo proibido de password/reset ou Facebook OIDC."],
+                meta={"storage_state_used": storage_loaded, "final_url": page.url},
+            )
+            write_json(out_path, envelope)
+            browser.close()
+            return 4
+
+        handle = PROFILE_PATH_RE.fullmatch(urlsplit(profile_url).path).group(1)
+        info = page.evaluate(PROFILE_EXTRACT_JS)
+        login_wall = detect_login_wall_from_dom(info)
+        screenshot_error: str | None = None
+        try:
+            marked = page.evaluate(PROFILE_MARK_CONTENT_JS, handle)
+            profile_content = page.locator("[data-tarrafa-ig-profile]").first
+            if marked and profile_content.count() and profile_content.is_visible():
+                profile_content.screenshot(path=str(shot_path), type="png")
+            else:
+                page.screenshot(path=str(shot_path), full_page=False, type="png")
+        except Exception as exc:
+            screenshot_error = f"screenshot: {type(exc).__name__}: {exc}"
+
+        media = instagram_media_urls(
+            list(info.get("media_urls") or []),
+            limit=args.max_posts,
+        )
+        item = {
+            "kind": "instagram_profile",
+            "handle": f"@{handle}",
+            "profile_url": profile_url,
+            "final_url": info.get("href") or page.url,
+            "title": info.get("og_title") or info.get("title"),
+            "description": info.get("description"),
+            "image_url": info.get("image"),
+            "text_excerpt": info.get("text_excerpt"),
+            "media_urls": media,
+            "media_count": len(media),
+            "login_wall": login_wall,
+            "screenshot": str(shot_path) if screenshot_error is None else None,
+        }
+        errors = [screenshot_error] if screenshot_error else []
+        if login_wall:
+            errors.append("Login wall detectado; perfil e mídias não foram considerados coletados.")
+        envelope = build_envelope(
+            "ig-profile",
+            source={"url": profile_url},
+            items=[item],
+            meta={
+                "storage_state_used": storage_loaded,
+                "media_discovered": len(media),
+                "login_wall": login_wall,
+                "screenshot": str(shot_path) if screenshot_error is None else None,
+            },
+            errors=errors,
+            notes=[
+                "Inventário material-only do perfil e de links públicos de posts/reels.",
+                "Não automatiza senha, Facebook OIDC nem contorna login wall.",
+            ],
+        )
+        if args.save_storage and not login_wall:
+            context.storage_state(path=args.save_storage)
+        write_json(out_path, envelope)
+        browser.close()
+
+    print(
+        f"[ig-profile] wrote {out_path} media={len(media)} "
+        f"login_wall={login_wall} shot={shot_path if screenshot_error is None else 'erro'}"
+    )
+    if login_wall:
+        return 5
+    return 1 if errors else 0
+
+
+# ---------------------------------------------------------------------------
 # Main scrape loop
 # ---------------------------------------------------------------------------
 
@@ -1147,11 +1453,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="tarrafa ig",
         description=(
-            "Collect Instagram post/reel comments into forensic JSON "
-            "(comment_id, permanent /c/ URL, likes, parent_id)."
+            "Coleta inventário de perfil ou comentários de post/reel do Instagram "
+            "em JSON material-only."
         ),
     )
-    ap.add_argument("--url", required=True, help="Instagram post or reel URL")
+    ap.add_argument("--url", required=True, help="URL de perfil, post ou reel do Instagram")
     ap.add_argument(
         "--out",
         required=True,
@@ -1188,11 +1494,34 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path for stats JSON (default: next to --out as ig_scrape_stats.json)",
     )
+    ap.add_argument(
+        "--max-posts",
+        type=int,
+        default=12,
+        help="Em URL de perfil, máximo de links recentes inventariados (padrão: 12)",
+    )
+    ap.add_argument(
+        "--profile-shot",
+        default=None,
+        help="Em URL de perfil, caminho do PNG (padrão: mesmo nome de --out)",
+    )
     return ap
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
+    if args.max_posts < 0 or args.max_posts > 100:
+        print("ig: --max-posts deve estar entre 0 e 100", file=sys.stderr)
+        return 2
+    profile_url = instagram_profile_url(args.url)
+    if profile_url:
+        return run_profile_inventory(args, profile_url)
+    if not shortcode_from_url(args.url) and args.max_comments != 0:
+        print(
+            "ig: --url deve apontar para perfil, post, reel ou TV do Instagram",
+            file=sys.stderr,
+        )
+        return 2
     return run_scrape(args)
 
 

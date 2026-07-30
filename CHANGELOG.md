@@ -9,6 +9,9 @@
   token, sem exibir o segredo, e avisa sobre arquivos divergentes e reinício do cliente.
 
 ### Fixed
+- **Cobertura Instagram em `profile`** — Instagram passa a ser categoria independente;
+  LinkedIn e outras redes não mascaram sua ausência. Login wall fica explícito e seu print
+  não é embutido no HTML.
 - **`tarrafa profile`** — gera `profile.html` por padrão, limpa
   `queries_followup.txt` quando a cobertura é concluída e inclui publicações externas
   capturadas no inventário autoral como candidatas. `--no-html` mantém o modo machine-only.
@@ -23,6 +26,9 @@
   logradouro usa comparação mais estrita e falhas retornam exit code `1`.
 
 ### Added
+- **`tarrafa ig` + `profile`** — `ig` aceita URL de perfil para inventário, print e
+  descoberta de posts/reels. `profile` acopla essa etapa por padrão e encaminha as mídias
+  conhecidas ao coletor de comentários, com artefatos em `instagram/`.
 - **`tarrafa profile`** — descoberta iterativa de perfis com matriz de consultas,
   ranking de candidatos, segunda rodada por domínio, captura de páginas públicas,
   sitemap/crawl de sites candidatos, inventário de artigos e matriz de cobertura. Sem

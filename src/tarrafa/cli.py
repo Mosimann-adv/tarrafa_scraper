@@ -15,12 +15,12 @@ from pathlib import Path
 
 TOOLS = [
     ("init", "Create optional workspace (tarrafa.toml + raw/shots/html/logs/meta)"),
-    ("ig", "Instagram post/reel comments -> forensic JSON (permalinks /c/)"),
+    ("ig", "Inventário de perfil IG ou comentários -> JSON (permalinks /c/)"),
     ("page", "Single public page capture (HTTP / browser + structured facts)"),
     ("site", "Concurrent same-host crawl -> multi-page envelope"),
     ("feed", "RSS/Atom feed inventory (optional entry fetch)"),
     ("search", "Descoberta web: encontra URLs candidatas via Brave/SearXNG"),
-    ("profile", "Descoberta iterativa de perfil: pivôs, site próprio, artigos e cobertura"),
+    ("profile", "Perfil web aprofundado: Instagram acoplado, site, artigos e HTML"),
     ("shot", "High-quality page screenshot -> PNG + JSON"),
     ("video", "Video meta + frames (+ optional yt-dlp download)"),
     ("album", "Compile shots/frames into print-ready HTML album"),

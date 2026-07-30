@@ -15,6 +15,7 @@ CPF, e-mail completo e telefone não são aceitos como âncoras de busca.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 import unicodedata
@@ -27,6 +28,12 @@ from tarrafa.core.envelope import build_envelope
 from tarrafa.core.http import fetch_url, same_registrable_host
 from tarrafa.core.writers import write_json
 from tarrafa.tools.dossier.scraper import build_dossier
+from tarrafa.tools.ig.scraper import (
+    instagram_media_urls,
+    instagram_profile_url,
+    shortcode_from_url,
+)
+from tarrafa.tools.ig.scraper import main as ig_main
 from tarrafa.tools.page.scraper import capture_page
 from tarrafa.tools.search.providers import (
     BaseSearchProvider,
@@ -806,12 +813,178 @@ def _crawl_sites(
     return sites, sorted(deduped_articles.values(), key=lambda item: item["url"]), errors
 
 
+def _read_json_object(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _instagram_profile_candidate(
+    handle: str | None,
+    ranked: Iterable[dict[str, Any]],
+) -> str | None:
+    if handle:
+        return instagram_profile_url(handle)
+    for item in ranked:
+        candidate = instagram_profile_url(
+            str(item.get("canonical_url") or item.get("url") or "")
+        )
+        if candidate:
+            return candidate
+    return None
+
+
+def collect_instagram(
+    *,
+    handle: str | None,
+    ranked: list[dict[str, Any]],
+    captures: list[dict[str, Any]],
+    explicit_media_urls: list[str],
+    out_dir: Path,
+    enabled: bool,
+    storage_state: str | None,
+    headed: bool,
+    max_posts: int,
+    max_comments: int,
+    expand_replies: bool,
+) -> tuple[dict[str, Any], list[str]]:
+    """Executa a etapa IG do perfil e retorna inventário + erros materiais."""
+    profile_url = _instagram_profile_candidate(handle, ranked)
+    required = bool(handle)
+    record: dict[str, Any] = {
+        "enabled": enabled,
+        "required": required,
+        "profile_url": profile_url,
+        "profile": None,
+        "media_urls": [],
+        "posts": [],
+        "state": "disabled" if not enabled else "missing",
+        "posts_state": "not_run",
+    }
+    if not enabled:
+        return record, []
+    if not profile_url:
+        record["posts_state"] = "no_profile"
+        return record, []
+
+    instagram_dir = out_dir / "instagram"
+    instagram_dir.mkdir(parents=True, exist_ok=True)
+    profile_out = instagram_dir / "profile.json"
+    profile_shot = instagram_dir / "profile.png"
+    inventory_args = [
+        "--url",
+        profile_url,
+        "--out",
+        str(profile_out),
+        "--profile-shot",
+        str(profile_shot),
+        "--max-posts",
+        str(max_posts),
+    ]
+    if storage_state:
+        inventory_args.extend(["--storage-state", storage_state])
+    if headed:
+        inventory_args.append("--headed")
+
+    profile_code = ig_main(inventory_args)
+    profile_payload = _read_json_object(profile_out)
+    profile_item = (
+        profile_payload["items"][0]
+        if profile_payload
+        and isinstance(profile_payload.get("items"), list)
+        and profile_payload["items"]
+        and isinstance(profile_payload["items"][0], dict)
+        else None
+    )
+    login_wall = bool(
+        (profile_payload or {}).get("meta", {}).get("login_wall")
+        or (profile_item or {}).get("login_wall")
+    )
+    record["profile"] = {
+        "exit_code": profile_code,
+        "path": str(profile_out),
+        "screenshot": (
+            str(profile_shot)
+            if profile_shot.is_file() and not login_wall
+            else None
+        ),
+        "login_wall": login_wall,
+        "media_discovered": int((profile_item or {}).get("media_count") or 0),
+    }
+    errors: list[str] = []
+    if profile_code == 0 and profile_item and not login_wall:
+        record["state"] = "found"
+    elif login_wall or profile_code == 5:
+        record["state"] = "blocked"
+        errors.append("instagram_profile: login wall detectado")
+    else:
+        record["state"] = "error"
+        errors.append(f"instagram_profile: coleta falhou com exit code {profile_code}")
+
+    media_inputs = list(explicit_media_urls)
+    media_inputs.extend(list((profile_item or {}).get("media_urls") or []))
+    for candidate in ranked:
+        media_inputs.append(str(candidate.get("canonical_url") or candidate.get("url") or ""))
+    for capture in captures:
+        media_inputs.append(str(capture.get("final_url") or capture.get("url") or ""))
+        media_inputs.extend(str(url) for url in (capture.get("links") or []))
+    media_urls = instagram_media_urls(media_inputs, limit=max_posts)
+    record["media_urls"] = media_urls
+    if not media_urls:
+        record["posts_state"] = "no_urls"
+        return record, errors
+
+    posts_ok = 0
+    for media_url in media_urls:
+        shortcode = shortcode_from_url(media_url) or f"item_{len(record['posts']) + 1:02d}"
+        post_out = instagram_dir / f"post_{shortcode}.json"
+        stats_out = instagram_dir / f"post_{shortcode}_stats.json"
+        post_args = [
+            "--url",
+            media_url,
+            "--out",
+            str(post_out),
+            "--stats",
+            str(stats_out),
+            "--max-comments",
+            str(max_comments),
+        ]
+        if storage_state:
+            post_args.extend(["--storage-state", storage_state])
+        if headed:
+            post_args.append("--headed")
+        if expand_replies:
+            post_args.append("--expand-replies")
+        exit_code = ig_main(post_args)
+        payload = _read_json_object(post_out)
+        count = int((payload or {}).get("count") or 0)
+        artifact_written = post_out.is_file()
+        if exit_code in {0, 6} and artifact_written:
+            posts_ok += 1
+        else:
+            errors.append(f"instagram_post {shortcode}: exit code {exit_code}")
+        record["posts"].append(
+            {
+                "url": media_url,
+                "shortcode": shortcode,
+                "exit_code": exit_code,
+                "path": str(post_out) if artifact_written else None,
+                "comments": count,
+            }
+        )
+    record["posts_state"] = "complete" if posts_ok == len(media_urls) else "partial"
+    return record, errors
+
+
 def build_coverage(
     *,
     ranked: list[dict[str, Any]],
     captures: list[dict[str, Any]],
     sites: list[dict[str, Any]],
     articles: list[dict[str, Any]],
+    instagram: dict[str, Any],
     rounds_executed: int,
     followup_queries_pending: int,
 ) -> list[dict[str, Any]]:
@@ -841,6 +1014,36 @@ def build_coverage(
             note="Candidato por nexo de conteúdo; exige conferência humana antes de afirmar propriedade.",
         ),
         row("authored_content", len(articles)),
+        {
+            "category": "instagram_profile",
+            "state": instagram.get("state") or "missing",
+            "evidence_count": 1 if instagram.get("state") == "found" else 0,
+            "note": {
+                "found": "Perfil do Instagram coletado como etapa independente.",
+                "blocked": "Perfil conhecido, mas a coleta encontrou login wall.",
+                "error": "Perfil conhecido, mas a coleta falhou.",
+                "disabled": "Etapa do Instagram desabilitada explicitamente.",
+                "missing": "Nenhum handle ou perfil candidato foi encontrado.",
+            }.get(str(instagram.get("state")), ""),
+        },
+        {
+            "category": "instagram_posts",
+            "state": {
+                "complete": "found",
+                "partial": "pending",
+                "no_urls": "missing",
+                "no_profile": "missing",
+                "not_run": "disabled",
+            }.get(str(instagram.get("posts_state")), "missing"),
+            "evidence_count": len(instagram.get("posts") or []),
+            "note": {
+                "complete": "Posts/reels descobertos foram passados ao tarrafa ig.",
+                "partial": "Uma ou mais coletas de posts/reels falharam.",
+                "no_urls": "Nenhuma URL de post/reel ficou disponível para comentários.",
+                "no_profile": "Nenhum perfil candidato disponível para inventariar mídias.",
+                "not_run": "Etapa de posts/reels não executada.",
+            }.get(str(instagram.get("posts_state")), ""),
+        },
         {
             "category": "iterative_search",
             "state": "complete" if followup_queries_pending == 0 else "pending",
@@ -880,6 +1083,7 @@ def _profile_html_payload(
     captures: list[dict[str, Any]],
     sites: list[dict[str, Any]],
     articles: list[dict[str, Any]],
+    instagram: dict[str, Any],
     coverage: list[dict[str, Any]],
     queries_executed: int,
 ) -> dict[str, Any]:
@@ -921,8 +1125,14 @@ def _profile_html_payload(
         )
     facts.append(
         f"A descoberta registrou {len(ranked)} candidato(s) e {len(captures)} "
-        "captura(s) pública(s), sem sessão autenticada."
+        "captura(s) web pública(s), sem sessão autenticada nessa etapa."
     )
+    if instagram.get("state") == "found":
+        facts.append(
+            "O perfil do Instagram foi coletado como cobertura independente; "
+            f"{len(instagram.get('media_urls') or [])} post(s)/reel(s) foram descobertos "
+            f"e {len(instagram.get('posts') or [])} coleta(s) de comentários foram executadas."
+        )
 
     sources: list[dict[str, str]] = []
     seen_urls: set[str] = set()
@@ -964,6 +1174,12 @@ def _profile_html_payload(
             candidate_url,
             f"Candidato de identidade · score {int(candidate.get('identity_score') or 0)}",
         )
+    if instagram.get("profile_url"):
+        add_source(
+            "Perfil do Instagram",
+            str(instagram["profile_url"]),
+            f"Cobertura específica · estado {instagram.get('state') or 'missing'}",
+        )
 
     gaps = [
         str(row.get("note") or f"Cobertura ausente: {row.get('category')}")
@@ -982,21 +1198,43 @@ def _profile_html_payload(
             {"label": "Candidatos", "value": str(len(ranked))},
             {"label": "Capturas", "value": str(len(captures))},
             {"label": "Conteúdos", "value": str(len(articles))},
+            {
+                "label": "Posts IG",
+                "value": str(len(instagram.get("posts") or [])),
+            },
         ],
         "sources": sources,
         "gaps": gaps,
         "notes": [
             "CPF, e-mail e telefone não foram usados como consultas.",
-            "Capturas públicas, sem storage_state nem outra sessão autenticada.",
+            (
+                "A etapa Instagram pode usar storage_state local quando disponível; "
+                "o arquivo de sessão nunca é embutido no HTML."
+            ),
         ],
         "chips": [
             f"{len(ranked)} candidatos",
             f"{len(articles)} conteúdos",
             f"{len(sites)} sites avaliados",
+            f"Instagram: {instagram.get('state') or 'missing'}",
         ],
+        "shots": (
+            [
+                {
+                    "id": "instagram_profile",
+                    "path": instagram["profile"]["screenshot"],
+                    "caption": "Perfil público no Instagram",
+                    "url": instagram.get("profile_url") or "",
+                    "kind": "instagram_profile",
+                }
+            ]
+            if (instagram.get("profile") or {}).get("screenshot")
+            else []
+        ),
         "method": (
             f"{queries_executed} consultas · {len(captures)} capturas · "
-            f"{sum(int(site.get('pages') or 0) for site in sites)} páginas em crawl"
+            f"{sum(int(site.get('pages') or 0) for site in sites)} páginas em crawl · "
+            f"Instagram {instagram.get('state') or 'missing'}"
         ),
     }
 
@@ -1043,6 +1281,51 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--max-domains", type=int, default=3)
     ap.add_argument("--max-site-pages", type=int, default=30)
     ap.add_argument("--max-depth", type=int, default=2)
+    instagram = ap.add_mutually_exclusive_group()
+    instagram.add_argument(
+        "--instagram",
+        dest="instagram",
+        action="store_true",
+        default=True,
+        help="Executa cobertura específica do Instagram via tarrafa ig (padrão)",
+    )
+    instagram.add_argument(
+        "--no-instagram",
+        dest="instagram",
+        action="store_false",
+        help="Desabilita explicitamente a etapa do Instagram",
+    )
+    ap.add_argument(
+        "--ig-url",
+        action="append",
+        default=[],
+        help="URL conhecida de post/reel a coletar; repetível",
+    )
+    ap.add_argument(
+        "--ig-storage-state",
+        default=None,
+        help=(
+            "Sessão Playwright do Instagram; padrão: ./storage_state.json quando existir"
+        ),
+    )
+    ap.add_argument("--ig-headed", action="store_true", help="Mostra navegador na etapa IG")
+    ap.add_argument(
+        "--ig-max-posts",
+        type=int,
+        default=12,
+        help="Máximo de posts/reels inventariados e coletados (padrão: 12)",
+    )
+    ap.add_argument(
+        "--ig-max-comments",
+        type=int,
+        default=500,
+        help="Máximo de comentários por post/reel (padrão: 500)",
+    )
+    ap.add_argument(
+        "--ig-expand-replies",
+        action="store_true",
+        help="Expande respostas nas coletas acopladas de posts/reels",
+    )
     ap.add_argument("--out-dir", required=True)
     html = ap.add_mutually_exclusive_group()
     html.add_argument(
@@ -1078,6 +1361,15 @@ def _validate_args(args: argparse.Namespace) -> str | None:
         return "--max-site-pages deve estar entre 1 e 500"
     if args.max_depth < 0 or args.max_depth > 10:
         return "--max-depth deve estar entre 0 e 10"
+    if args.ig_max_posts < 0 or args.ig_max_posts > 100:
+        return "--ig-max-posts deve estar entre 0 e 100"
+    if args.ig_max_comments < 0 or args.ig_max_comments > 50_000:
+        return "--ig-max-comments deve estar entre 0 e 50000"
+    invalid_ig_urls = [
+        value for value in args.ig_url if not shortcode_from_url(value)
+    ]
+    if invalid_ig_urls:
+        return "--ig-url aceita somente URLs de post/reel/TV do Instagram"
     sensitive = _query_input_has_sensitive_data(
         [
             args.name,
@@ -1312,11 +1604,29 @@ def main(argv: list[str] | None = None) -> int:
     for article in external_articles:
         article_map.setdefault(article["url"], article)
     articles = sorted(article_map.values(), key=lambda article: article["url"])
+    ig_storage_state = args.ig_storage_state
+    if not ig_storage_state and Path("storage_state.json").is_file():
+        ig_storage_state = str(Path("storage_state.json").resolve())
+    instagram_record, instagram_errors = collect_instagram(
+        handle=args.handle,
+        ranked=ranked,
+        captures=all_captures,
+        explicit_media_urls=args.ig_url,
+        out_dir=out_dir,
+        enabled=args.instagram,
+        storage_state=ig_storage_state,
+        headed=args.ig_headed,
+        max_posts=args.ig_max_posts,
+        max_comments=args.ig_max_comments,
+        expand_replies=args.ig_expand_replies,
+    )
+    errors.extend(instagram_errors)
     coverage = build_coverage(
         ranked=ranked,
         captures=all_captures,
         sites=sites,
         articles=articles,
+        instagram=instagram_record,
         rounds_executed=len(round_summaries),
         followup_queries_pending=len(pending_followups),
     )
@@ -1342,6 +1652,7 @@ def main(argv: list[str] | None = None) -> int:
         "captures": all_captures,
         "sites": sites,
         "authored_content": articles,
+        "instagram": instagram_record,
         "coverage": coverage,
         "followup_queries": pending_followups,
     }
@@ -1357,7 +1668,7 @@ def main(argv: list[str] | None = None) -> int:
                 else None
             ),
         },
-        items=[item] if ranked or sites else [],
+        items=[item] if ranked or sites or instagram_record.get("profile_url") else [],
         meta={
             "rounds_executed": len(round_summaries),
             "queries_executed": len(used_queries),
@@ -1365,19 +1676,32 @@ def main(argv: list[str] | None = None) -> int:
             "captures": len(all_captures),
             "sites_expanded": len(sites),
             "authored_content": len(articles),
+            "instagram": {
+                "state": instagram_record.get("state"),
+                "posts_state": instagram_record.get("posts_state"),
+                "posts": len(instagram_record.get("posts") or []),
+            },
             "followup_queries_pending": len(pending_followups),
             "privacy": {
                 "accepts_cpf": False,
                 "accepts_email": False,
                 "accepts_phone": False,
-                "authenticated_session_used": False,
+                "authenticated_session_used": bool(
+                    ig_storage_state
+                    and Path(ig_storage_state).is_file()
+                    and args.instagram
+                    and instagram_record.get("profile_url")
+                ),
             },
         },
         errors=errors,
         notes=[
             "Material-only: candidatos e relações de domínio exigem conferência humana.",
             "O comando não gera biografia, não classifica condutas e não consulta CPF.",
-            "Capturas são públicas e não usam storage_state nem outra sessão autenticada.",
+            (
+                "Busca e crawl usam páginas públicas; a etapa Instagram pode usar apenas "
+                "o storage_state local informado ou já existente."
+            ),
         ],
     )
     html_path: Path | None = None
@@ -1390,6 +1714,7 @@ def main(argv: list[str] | None = None) -> int:
                 captures=all_captures,
                 sites=sites,
                 articles=articles,
+                instagram=instagram_record,
                 coverage=coverage,
                 queries_executed=len(used_queries),
             )
@@ -1402,6 +1727,7 @@ def main(argv: list[str] | None = None) -> int:
                 facts=html_payload["facts"],
                 stats=html_payload["stats"],
                 sources=html_payload["sources"],
+                shots=html_payload["shots"],
                 gaps=html_payload["gaps"],
                 notes=html_payload["notes"],
                 chips=html_payload["chips"],
@@ -1432,6 +1758,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"profile: wrote {out}  rounds={len(round_summaries)}  candidates={len(ranked)}  "
         f"captures={len(all_captures)}  sites={len(sites)}  articles={len(articles)}  "
+        f"instagram={instagram_record.get('state')}  ig_posts={len(instagram_record.get('posts') or [])}  "
         f"pending_queries={len(pending_followups)}  errors={len(errors)}  "
         f"html={html_path if html_path and html_path.is_file() else 'off'}"
     )

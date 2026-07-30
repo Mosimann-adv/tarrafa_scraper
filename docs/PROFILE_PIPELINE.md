@@ -25,8 +25,11 @@ CASO/
    artigos/blog/sitemap. Sem provedor, faça a busca com as ferramentas do ambiente,
    registre o primeiro repasse com `--from-agent` e execute também as consultas gravadas
    em `queries_followup.txt`. Pular a segunda rodada e ir direto ao DJEN é uma lacuna.
-3. **Web/IG** — confirme bio, contagem, link na bio e reel relevante nos candidatos.
-4. **`tarrafa shot`** no perfil e no post/reel (path = `CASO/shots`).
+3. **Instagram acoplado** — havendo handle ou perfil candidato, `profile` chama
+   `tarrafa ig`, grava `instagram/profile.json` + `instagram/profile.png`, descobre
+   posts/reels e coleta comentários. `social_profiles` genérico nunca substitui
+   `instagram_profile`.
+4. **`tarrafa shot` seletivo** no post/reel quando for necessária imagem adicional.
 5. **`djen --papel parte --cpf`** quando houver CPF. Sem CPF, usar `--nome "Nome
    Completo"` e `--texto "handle"` (handles quase nunca saem no DJEN; o nome sim).
 6. **`--follow-datajud`** ou `datajud` nos CNJs com nexo.
@@ -37,7 +40,8 @@ CASO/
 ```powershell
 tarrafa profile --name "Marina Alves" --handle "@marinaalves" `
   --profession "arquiteta" --keyword "urbanismo" `
-  --from-agent "CASO\raw\repasse.json" --out-dir "CASO\raw\profile"
+  --from-agent "CASO\raw\repasse.json" --out-dir "CASO\raw\profile" `
+  --ig-storage-state ".\storage_state.json" --ig-expand-replies
 ```
 
 O comando gera `profile.json` e `profile.html` por padrão. Não finalize um pedido de perfil
@@ -49,7 +53,9 @@ consultas por nome/handle/contexto, domínio próprio avaliado, páginas institu
 abertas, seção de artigos ou sitemap verificados e lacunas explicitadas. `profile` não usa
 CPF, e-mail ou telefone como consulta e não transforma candidato em identidade confirmada.
 Conteúdo autoral externo capturado deve constar no inventário com relação `candidate`, sem
-ser confundido com artigos encontrados no domínio profissional.
+ser confundido com artigos encontrados no domínio profissional. Para Instagram, confira
+separadamente `instagram_profile` e `instagram_posts`: LinkedIn não cobre essas linhas.
+`blocked` ou `missing` deve permanecer como lacuna, nunca ser promovido a sucesso.
 
 ## Instagram — o que falha e o que fazer
 
@@ -63,6 +69,10 @@ ser confundido com artigos encontrados no domínio profissional.
 Comandos:
 
 ```powershell
+tarrafa ig --url "https://www.instagram.com/HANDLE/" `
+  --out "CASO\raw\profile\instagram\profile.json" `
+  --profile-shot "CASO\raw\profile\instagram\profile.png" `
+  --storage-state ".\storage_state.json"
 tarrafa shot --url "https://www.instagram.com/HANDLE/" --out-dir "CASO\shots" --id ig_perfil --clip page --dpr 2
 tarrafa shot --url "https://www.instagram.com/HANDLE/reel/ID/" --out-dir "CASO\shots" --id ig_reel --clip page --dpr 2
 ```
