@@ -8,6 +8,7 @@ from unittest.mock import patch
 from tarrafa.tools.profile.scraper import (
     generate_initial_queries,
     inventory_articles,
+    inventory_external_articles,
     main,
     score_candidate,
 )
@@ -70,6 +71,56 @@ def test_inventory_articles_combines_crawl_and_sitemap():
 
     assert len(articles) == 2
     assert {item["discovered_via"] for item in articles} == {"crawl", "sitemap"}
+
+
+def test_inventory_external_articles_keeps_captured_editorial_candidate():
+    articles = inventory_external_articles(
+        [
+            {
+                "canonical_url": "https://revista.example/article/view/42",
+                "title": "Cidades e cuidado",
+                "identity_score": 28,
+            },
+            {
+                "canonical_url": "https://entidade.example/noticias/nova-comissao",
+                "title": "Nova comissão profissional",
+                "identity_score": 45,
+            },
+            {
+                "canonical_url": "https://revista.example/article/view/antigo",
+                "title": "Página antiga",
+                "identity_score": 28,
+            }
+        ],
+        [
+            {
+                "url": "https://revista.example/article/view/42",
+                "final_url": "https://revista.example/article/view/42",
+                "status": 200,
+                "title": "Cidades e cuidado",
+                "text_len": 1800,
+            },
+            {
+                "url": "https://entidade.example/noticias/nova-comissao",
+                "final_url": "https://entidade.example/noticias/nova-comissao",
+                "status": 200,
+                "title": "Nova comissão profissional",
+                "text_len": 900,
+            },
+            {
+                "url": "https://revista.example/article/view/antigo",
+                "final_url": "https://revista.example/article/view/antigo",
+                "status": 404,
+                "title": "404",
+                "text_len": 30,
+            }
+        ],
+        name="Marina de Luz",
+    )
+
+    assert len(articles) == 1
+    assert articles[0]["discovered_via"] == "search_capture"
+    assert articles[0]["relationship"] == "candidate"
 
 
 def test_profile_rejects_sensitive_anchor(tmp_path: Path, capsys):
@@ -194,5 +245,45 @@ def test_profile_from_agent_emits_followups_and_expands_site(tmp_path: Path):
     assert payload["meta"]["followup_queries_pending"] >= 1
     assert item["sites"][0]["relationship"] == "strong_candidate"
     assert item["authored_content"][0]["author"] == "Marina Luz"
+    assert payload["meta"]["html"]["generated"] is True
+    assert item["html"]["sources"] >= 2
+    assert (out / "profile.html").is_file()
+    html = (out / "profile.html").read_text(encoding="utf-8")
+    assert "Marina de Luz" in html
+    assert "Cidades caminháveis" in html
     assert (out / "queries_followup.txt").is_file()
     assert (out / "site_marina_luz_example.json").is_file()
+
+
+def test_profile_clears_stale_followup_file_when_search_is_complete(tmp_path: Path):
+    handoff = tmp_path / "repasse.json"
+    handoff.write_text(
+        json.dumps(
+            {
+                "agent": "busca sintética",
+                "note": "nenhum resultado pertinente",
+                "queries": [{"query": '"Pessoa Exemplo"', "results": []}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "profile"
+    out.mkdir()
+    followup = out / "queries_followup.txt"
+    followup.write_text("consulta antiga\n", encoding="utf-8")
+
+    code = main(
+        [
+            "--name",
+            "Pessoa Exemplo",
+            "--from-agent",
+            str(handoff),
+            "--out-dir",
+            str(out),
+            "--no-html",
+        ]
+    )
+
+    assert code == 6
+    assert followup.read_text(encoding="utf-8") == ""

@@ -40,10 +40,16 @@ tarrafa profile --name "Marina Alves" --handle "@marinaalves" `
   --from-agent "CASO\raw\repasse.json" --out-dir "CASO\raw\profile"
 ```
 
+O comando gera `profile.json` e `profile.html` por padrão. Não finalize um pedido de perfil
+entregando apenas o JSON. `--no-html` é reservado a integrações machine-only; para outro
+destino visual, use `--html-out "CASO\html\PERFIL.html"`.
+
 Só considere a descoberta suficientemente profunda quando a matriz de cobertura registrar
 consultas por nome/handle/contexto, domínio próprio avaliado, páginas institucionais
 abertas, seção de artigos ou sitemap verificados e lacunas explicitadas. `profile` não usa
 CPF, e-mail ou telefone como consulta e não transforma candidato em identidade confirmada.
+Conteúdo autoral externo capturado deve constar no inventário com relação `candidate`, sem
+ser confundido com artigos encontrados no domínio profissional.
 
 ## Instagram — o que falha e o que fazer
 

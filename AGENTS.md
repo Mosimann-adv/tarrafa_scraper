@@ -77,6 +77,7 @@ tarrafa search --from-agent "OUT_DIR/repasse.json" \
 tarrafa profile --name "Marina Alves" --handle "@marinaalves" \
   --profession "arquiteta" --keyword "urbanismo" \
   --from-agent "OUT_DIR/repasse.json" --out-dir "OUT_DIR/profile"
+# profile gera OUT_DIR/profile/profile.html por padrão; use --no-html só em integração JSON
 tarrafa page --url "URL" --out "OUT.json"
 tarrafa shot --url "URL" --out-dir "OUT_DIR" --id SHOT01 --full-page --dpr 2
 tarrafa album --dir "OUT_DIR" --out "OUT_DIR/album.html" --title "…" --kicker "Inventário visual"
@@ -187,6 +188,9 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 19. `profile` aprofunda a descoberta em rodadas, abre somente páginas públicas, tenta
     localizar site próprio e inventariar artigos. Nunca use CPF/e-mail/telefone como
     consulta. Site e autoria permanecem candidatos até confirmação humana e cruzamento.
+20. `profile` deve encerrar com `profile.json` **e `profile.html` por padrão**. Só use
+    `--no-html` quando o pedido for expressamente machine-only. Publicação externa
+    capturada entra como autoria candidata, separada do conteúdo do domínio próprio.
 
 ## Exit codes (common)
 

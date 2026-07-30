@@ -82,6 +82,10 @@ profissional, formação e vínculo que nenhuma outra fonte entrega.
   --from-agent "PASTA/repasse.json" --out-dir "PASTA/profile"
 ```
 
+`profile` gera **`profile.json` e `profile.html` por padrão**. Não encerre um pedido de
+perfil entregando só o JSON. Use `--no-html` apenas quando o usuário pedir integração
+machine-only; `--html-out` escolhe outro destino.
+
 ```json
 {"agent": "quem buscou",
  "note": "URLs descartadas e motivos, ou declaração de que não houve descartes",
@@ -118,6 +122,8 @@ facilidade, e atribuir processo à pessoa errada é a falha mais cara desta ferr
 
 `profile` nunca aceita CPF, e-mail ou telefone como consulta. Esses dados podem ser usados
 depois, em ferramentas específicas e locais, mas não para ampliar exposição em buscadores.
+Publicações externas capturadas entram como autoria candidata, separadas do conteúdo
+inventariado no domínio profissional.
 
 **Provedor próprio é opcional.** Quem tiver `BRAVE_SEARCH_API_KEY` ou `SEARXNG_URL` pode
 buscar dentro do CLI com `--query` e `--queries-file`, ganhando cota e velocidade. Não

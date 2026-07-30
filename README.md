@@ -566,7 +566,8 @@ A IA é opcional: `search` não chama modelo nem exige credencial de provedor de
 `profile` transforma a busca pontual em um ciclo verificável: combina nome, handle,
 profissão, local e palavras-chave; pontua candidatos; abre páginas públicas; cria
 consultas de segundo nível por domínio; percorre sites candidatos, sitemap e áreas de
-artigos; e registra cobertura e lacunas em `profile.json`.
+artigos; e registra cobertura e lacunas em `profile.json`. Uma ficha navegável
+`profile.html` é gerada por padrão no mesmo diretório.
 
 ```bash
 # sem provedor próprio: a busca do ambiente entra pelo repasse
@@ -577,12 +578,18 @@ tarrafa profile --name "Marina Alves" --handle "@marinaalves" \
 # com Brave ou SearXNG já configurado: as rodadas seguintes rodam no CLI
 tarrafa profile --name "Marina Alves" --profession "arquiteta" \
   --location "Curitiba" --out-dir ./out/profile
+
+# integração puramente estruturada, sem HTML
+tarrafa profile --name "Marina Alves" --from-agent ./repasse.json \
+  --out-dir ./out/profile --no-html
 ```
 
 Sem provedor, `queries_followup.txt` registra as consultas adicionais que ainda precisam
 ser executadas e reapresentadas numa nova coleta. O comando nunca usa CPF, e-mail ou
 telefone como consulta; aceita apenas páginas públicas e não confirma sozinho que um site
-ou artigo pertence à pessoa.
+ou artigo pertence à pessoa. Use `--html-out CAMINHO` para escolher outro destino. O
+comando inclui no inventário publicações externas capturadas, sem misturá-las com conteúdo
+do domínio próprio e mantendo a relação como candidata.
 
 ### Página
 

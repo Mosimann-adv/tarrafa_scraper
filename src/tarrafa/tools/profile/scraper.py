@@ -8,7 +8,7 @@ O comando não produz biografia nem classifica pessoas. Ele:
 3. captura candidatos públicos sem sessão autenticada;
 4. extrai pivôs seguros e executa novas rodadas quando há provedor;
 5. identifica domínios próprios prováveis e faz crawl same-host;
-6. inventaria conteúdo autoral e emite uma matriz de cobertura.
+6. inventaria conteúdo autoral, emite uma matriz de cobertura e gera HTML.
 
 CPF, e-mail completo e telefone não são aceitos como âncoras de busca.
 """
@@ -26,6 +26,7 @@ from tarrafa.core.crawl import crawl
 from tarrafa.core.envelope import build_envelope
 from tarrafa.core.http import fetch_url, same_registrable_host
 from tarrafa.core.writers import write_json
+from tarrafa.tools.dossier.scraper import build_dossier
 from tarrafa.tools.page.scraper import capture_page
 from tarrafa.tools.search.providers import (
     BaseSearchProvider,
@@ -49,7 +50,7 @@ _OAB_RE = re.compile(
 _SITEMAP_LOC_RE = re.compile(r"<loc>\s*([^<\s]+)\s*</loc>", re.IGNORECASE)
 _ROBOTS_SITEMAP_RE = re.compile(r"^\s*Sitemap:\s*(\S+)\s*$", re.IGNORECASE | re.MULTILINE)
 _ARTICLE_PATH_RE = re.compile(
-    r"/(?:blog|artigos?|noticias?|publicacoes?|insights?|conteudos?|author|autor)(?:/|$)",
+    r"/(?:blog|artigos?|articles?|noticias?|publicacoes?|insights?|conteudos?|author|autor)(?:/|$)",
     re.IGNORECASE,
 )
 _ARTICLE_TITLE_RE = re.compile(
@@ -641,6 +642,61 @@ def inventory_articles(
     return sorted(articles.values(), key=lambda item: item["url"])
 
 
+def inventory_external_articles(
+    ranked: Iterable[dict[str, Any]],
+    captures: Iterable[dict[str, Any]],
+    *,
+    name: str,
+    excluded_domains: Iterable[str] = (),
+) -> list[dict[str, Any]]:
+    """Inclui produção autoral candidata fora do domínio próprio."""
+    excluded = {_fold(domain) for domain in excluded_domains if domain}
+    short_name = _fold(_short_name(name))
+    captures_by_url: dict[str, dict[str, Any]] = {}
+    for capture in captures:
+        url = canonicalize_url(str(capture.get("final_url") or capture.get("url") or ""))
+        if url:
+            captures_by_url[url] = capture
+
+    articles: dict[str, dict[str, Any]] = {}
+    for candidate in ranked:
+        url = canonicalize_url(
+            str(candidate.get("canonical_url") or candidate.get("url") or "")
+        )
+        if not url or _fold(_host(url)) in excluded:
+            continue
+        if int(candidate.get("identity_score") or 0) < 20:
+            continue
+        capture = captures_by_url.get(url)
+        status = int((capture or {}).get("status") or 0)
+        if (
+            not capture
+            or status < 200
+            or status >= 400
+            or int(capture.get("text_len") or 0) <= 0
+        ):
+            continue
+        path = urlsplit(url).path.rstrip("/")
+        author = _fold(str(capture.get("author") or ""))
+        has_editorial_path = bool(
+            re.search(r"/(?:article|articles|artigo|artigos)(?:/|$)", path, re.IGNORECASE)
+        )
+        if not has_editorial_path and (not author or short_name not in author):
+            continue
+        articles[url] = {
+            "kind": "authored_content_candidate",
+            "url": url,
+            "title": str(capture.get("title") or candidate.get("title") or ""),
+            "author": capture.get("author"),
+            "date": capture.get("date") or candidate.get("published_at"),
+            "text_len": int(capture.get("text_len") or 0),
+            "discovered_via": "search_capture",
+            "relationship": "candidate",
+            "domain": _host(url),
+        }
+    return sorted(articles.values(), key=lambda item: item["url"])
+
+
 def _site_slug(host: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", host.lower()).strip("_") or "site"
 
@@ -817,6 +873,134 @@ def _write_lines(path: Path, lines: Iterable[str]) -> None:
         pass
 
 
+def _profile_html_payload(
+    *,
+    identity: dict[str, Any],
+    ranked: list[dict[str, Any]],
+    captures: list[dict[str, Any]],
+    sites: list[dict[str, Any]],
+    articles: list[dict[str, Any]],
+    coverage: list[dict[str, Any]],
+    queries_executed: int,
+) -> dict[str, Any]:
+    """Converte a descoberta material-only em dados para o renderer."""
+    meta: list[str] = []
+    for label, key in (
+        ("Handle informado", "handle"),
+        ("Profissão/função", "profession"),
+        ("Local", "location"),
+        ("Organização", "organization"),
+    ):
+        value = identity.get(key)
+        if value:
+            meta.append(f"{label}: {value}")
+
+    strong_sites = [site for site in sites if site.get("relationship") == "strong_candidate"]
+    site_articles = [
+        article for article in articles if article.get("discovered_via") in {"crawl", "sitemap"}
+    ]
+    external_articles = [
+        article for article in articles if article.get("discovered_via") == "search_capture"
+    ]
+    facts: list[str] = []
+    if strong_sites:
+        facts.append(
+            f"{len(strong_sites)} domínio(s) profissional(is) classificado(s) como "
+            "candidato forte por nexo de identidade e conteúdo."
+        )
+    if sites:
+        facts.append(
+            f"O crawl percorreu {sum(int(site.get('pages') or 0) for site in sites)} "
+            f"página(s) e encontrou {len(site_articles)} conteúdo(s) editorial(is) "
+            "no(s) domínio(s) avaliado(s)."
+        )
+    if external_articles:
+        facts.append(
+            f"A busca também capturou {len(external_articles)} publicação(ões) autoral(is) "
+            "candidata(s) em domínio(s) externo(s)."
+        )
+    facts.append(
+        f"A descoberta registrou {len(ranked)} candidato(s) e {len(captures)} "
+        "captura(s) pública(s), sem sessão autenticada."
+    )
+
+    sources: list[dict[str, str]] = []
+    seen_urls: set[str] = set()
+    successful_capture_urls = {
+        canonicalize_url(str(capture.get("final_url") or capture.get("url") or ""))
+        for capture in captures
+        if 200 <= int(capture.get("status") or 0) < 400
+    }
+
+    def add_source(label: str, url: str, note: str) -> None:
+        canonical = canonicalize_url(url)
+        if not canonical or canonical in seen_urls:
+            return
+        seen_urls.add(canonical)
+        sources.append({"label": label or "Fonte", "url": canonical, "note": note})
+
+    for site in sites:
+        add_source(
+            f"Domínio candidato · {site.get('domain') or _host(str(site.get('root_url') or ''))}",
+            str(site.get("root_url") or ""),
+            f"Relação: {site.get('relationship') or 'unconfirmed'}",
+        )
+    for article in articles:
+        add_source(
+            str(article.get("title") or "Conteúdo autoral candidato"),
+            str(article.get("url") or ""),
+            (
+                "Publicação externa candidata"
+                if article.get("discovered_via") == "search_capture"
+                else "Conteúdo inventariado no domínio avaliado"
+            ),
+        )
+    for candidate in ranked:
+        candidate_url = str(candidate.get("canonical_url") or candidate.get("url") or "")
+        if canonicalize_url(candidate_url) not in successful_capture_urls:
+            continue
+        add_source(
+            str(candidate.get("title") or candidate.get("domain") or "Fonte candidata"),
+            candidate_url,
+            f"Candidato de identidade · score {int(candidate.get('identity_score') or 0)}",
+        )
+
+    gaps = [
+        str(row.get("note") or f"Cobertura ausente: {row.get('category')}")
+        for row in coverage
+        if row.get("state") in {"missing", "pending"}
+    ]
+    if not gaps:
+        gaps.append(
+            "Domínios, identidade e autoria permanecem candidatos até conferência humana."
+        )
+    return {
+        "meta": meta,
+        "facts": facts,
+        "stats": [
+            {"label": "Consultas", "value": str(queries_executed)},
+            {"label": "Candidatos", "value": str(len(ranked))},
+            {"label": "Capturas", "value": str(len(captures))},
+            {"label": "Conteúdos", "value": str(len(articles))},
+        ],
+        "sources": sources,
+        "gaps": gaps,
+        "notes": [
+            "CPF, e-mail e telefone não foram usados como consultas.",
+            "Capturas públicas, sem storage_state nem outra sessão autenticada.",
+        ],
+        "chips": [
+            f"{len(ranked)} candidatos",
+            f"{len(articles)} conteúdos",
+            f"{len(sites)} sites avaliados",
+        ],
+        "method": (
+            f"{queries_executed} consultas · {len(captures)} capturas · "
+            f"{sum(int(site.get('pages') or 0) for site in sites)} páginas em crawl"
+        ),
+    }
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="tarrafa profile",
@@ -860,6 +1044,25 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--max-site-pages", type=int, default=30)
     ap.add_argument("--max-depth", type=int, default=2)
     ap.add_argument("--out-dir", required=True)
+    html = ap.add_mutually_exclusive_group()
+    html.add_argument(
+        "--html",
+        dest="html",
+        action="store_true",
+        default=True,
+        help="Gera profile.html (padrão)",
+    )
+    html.add_argument(
+        "--no-html",
+        dest="html",
+        action="store_false",
+        help="Não gera a ficha HTML",
+    )
+    ap.add_argument(
+        "--html-out",
+        default=None,
+        help="Caminho do HTML; padrão: OUT_DIR/profile.html",
+    )
     ap.add_argument("--timeout", type=float, default=30.0)
     return ap
 
@@ -1085,7 +1288,7 @@ def main(argv: list[str] | None = None) -> int:
     all_captures.extend(seed_captures)
     errors.extend(seed_capture_errors)
 
-    sites, articles, site_errors = _crawl_sites(
+    sites, site_articles, site_errors = _crawl_sites(
         ranked,
         explicit_sites=args.site,
         name=args.name,
@@ -1099,6 +1302,16 @@ def main(argv: list[str] | None = None) -> int:
         timeout=args.timeout,
     )
     errors.extend(site_errors)
+    external_articles = inventory_external_articles(
+        ranked,
+        all_captures,
+        name=args.name,
+        excluded_domains=[str(site.get("domain") or "") for site in sites],
+    )
+    article_map = {article["url"]: article for article in site_articles}
+    for article in external_articles:
+        article_map.setdefault(article["url"], article)
+    articles = sorted(article_map.values(), key=lambda article: article["url"])
     coverage = build_coverage(
         ranked=ranked,
         captures=all_captures,
@@ -1112,8 +1325,7 @@ def main(argv: list[str] | None = None) -> int:
         out_dir / "candidate_urls.txt",
         [str(item.get("canonical_url") or item.get("url")) for item in ranked],
     )
-    if pending_followups:
-        _write_lines(out_dir / "queries_followup.txt", pending_followups)
+    _write_lines(out_dir / "queries_followup.txt", pending_followups)
 
     item = {
         "kind": "profile_discovery",
@@ -1168,11 +1380,60 @@ def main(argv: list[str] | None = None) -> int:
             "Capturas são públicas e não usam storage_state nem outra sessão autenticada.",
         ],
     )
+    html_path: Path | None = None
+    if args.html:
+        html_path = Path(args.html_out) if args.html_out else out_dir / "profile.html"
+        try:
+            html_payload = _profile_html_payload(
+                identity=item["identity"],
+                ranked=ranked,
+                captures=all_captures,
+                sites=sites,
+                articles=articles,
+                coverage=coverage,
+                queries_executed=len(used_queries),
+            )
+            dossier_envelope = build_dossier(
+                title=args.name,
+                subtitle="Perfil público · descoberta e produção autoral",
+                kicker="Tarrafa · perfil público",
+                out_html=html_path,
+                meta=html_payload["meta"],
+                facts=html_payload["facts"],
+                stats=html_payload["stats"],
+                sources=html_payload["sources"],
+                gaps=html_payload["gaps"],
+                notes=html_payload["notes"],
+                chips=html_payload["chips"],
+                intro=(
+                    "Ficha material-only produzida a partir de páginas públicas. "
+                    "Candidatos de identidade, domínio e autoria exigem conferência humana."
+                ),
+                method=html_payload["method"],
+            )
+            dossier_item = dossier_envelope["items"][0]
+            item["html"] = {
+                "path": str(html_path),
+                "bytes": dossier_item["bytes_html"],
+                "sources": dossier_item["sources"],
+            }
+            envelope["meta"]["html"] = {
+                "generated": True,
+                "path": str(html_path),
+                "bytes": dossier_item["bytes_html"],
+            }
+        except Exception as exc:
+            errors.append(f"html: {type(exc).__name__}: {exc}")
+            envelope["errors"] = errors
+            envelope["meta"]["html"] = {"generated": False, "path": str(html_path)}
+    else:
+        envelope["meta"]["html"] = {"generated": False, "disabled": True}
     out = write_json(out_dir / "profile.json", envelope)
     print(
         f"profile: wrote {out}  rounds={len(round_summaries)}  candidates={len(ranked)}  "
         f"captures={len(all_captures)}  sites={len(sites)}  articles={len(articles)}  "
-        f"pending_queries={len(pending_followups)}  errors={len(errors)}"
+        f"pending_queries={len(pending_followups)}  errors={len(errors)}  "
+        f"html={html_path if html_path and html_path.is_file() else 'off'}"
     )
     if not envelope["items"]:
         return 1 if errors else 6

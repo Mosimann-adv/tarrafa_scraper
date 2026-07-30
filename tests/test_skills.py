@@ -197,6 +197,8 @@ def test_skill_documents_deep_profile_discovery():
     assert "queries_followup.txt" in section
     assert "sitemap" in section
     assert "nunca aceita CPF, e-mail ou telefone" in section
+    assert "profile.json` e `profile.html" in section
+    assert "--no-html" in section
 
 
 def test_public_docs_keep_search_providers_optional():

@@ -9,6 +9,9 @@
   token, sem exibir o segredo, e avisa sobre arquivos divergentes e reinício do cliente.
 
 ### Fixed
+- **`tarrafa profile`** — gera `profile.html` por padrão, limpa
+  `queries_followup.txt` quando a cobertura é concluída e inclui publicações externas
+  capturadas no inventário autoral como candidatas. `--no-html` mantém o modo machine-only.
 - **Diagnóstico do token Playwright MCP** — explica que o token pertence ao perfil atual
   do navegador e distingue presença local de validação real da conexão com a extensão.
 - **`tarrafa search --from-agent`** — exige declaração sobre descartes no `note` e
