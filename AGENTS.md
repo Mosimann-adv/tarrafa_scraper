@@ -173,6 +173,9 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
     Do **not** fuse processes by short name alone (homônimo).
 11. `datajud`: only with known CNJs (from DJEN or other sources); index typically has **no** party names.
 12. `pdf-extract`: material-only identity/contact/CNJ hints from court PDFs; validate before citing.
+    `cpfs` traz só sequências com dígito verificador válido; as reprovadas ficam em
+    `cpfs_rejected` (em autos, 11 dígitos seguidos costumam ser protocolo/conta/guia).
+    DV válido **não** confirma titularidade — segue sendo candidato a conferir.
 13. **Perfil / influencer:** ver `docs/PROFILE_PIPELINE.md` (IG shots, homônimo/CPF, djen parte, V1 HTML vs V2 anexo).
 14. **IG prints e comentários:** `tarrafa shot` / `tarrafa ig` no path do caso. Não depender de MCP para gravar PNG/JSON. Never embed login-wall shots in `dossier`.
 15. **CPF vs CNPJ mask:** CNPJá `***ABCDEF**` ≈ CPF digits 4–9. Do **not** attach a company QSA to the person if the mask does not match the CPF from court PDFs.

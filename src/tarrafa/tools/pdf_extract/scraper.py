@@ -237,6 +237,8 @@ def main(argv: list[str] | None = None) -> int:
         notes=[
             "Extração via pypdf (texto embutido). PDFs só-imagem exigem OCR externo.",
             "identity_hints são heurísticas sobre o texto — validar antes de usar em peça.",
+            "cpfs traz apenas sequências com dígito verificador válido; as demais, "
+            "normalmente protocolo/conta/guia, ficam em cpfs_rejected.",
             "Não fundir identidade só por homônimo de nome em PDF de terceiro.",
         ],
     )
@@ -246,7 +248,8 @@ def main(argv: list[str] | None = None) -> int:
     hints = s.get("identity_hints") or {}
     print(
         f"pdf-extract: wrote {out}  files={s['ok_files']}/{s['files']}  "
-        f"cpfs={len(hints.get('cpfs') or [])}  "
+        f"cpfs={len(hints.get('cpfs') or [])}"
+        f"(-{len(hints.get('cpfs_rejected') or [])} dv)  "
         f"cnjs={len(hints.get('cnjs') or [])}  "
         f"emails={len(hints.get('emails') or [])}  "
         f"addresses={len(hints.get('addresses') or [])}  "

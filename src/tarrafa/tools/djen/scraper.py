@@ -39,6 +39,7 @@ from urllib.parse import urlencode
 from tarrafa.core.envelope import build_envelope
 from tarrafa.core.http import DEFAULT_TIMEOUT, DEFAULT_UA, ensure_httpx
 from tarrafa.core.identity_extract import (
+    cpf_has_valid_dv,
     digits_only,
     extract_identity_hints,
     format_cpf,
@@ -591,6 +592,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.cpf and not cpf_normalizado:
         print("djen: --cpf inválido: informe 11 dígitos não repetidos", file=sys.stderr)
         return 2
+    if cpf_normalizado and not cpf_has_valid_dv(cpf_normalizado):
+        # Não bloqueia: a consulta segue. Mas zero resultados de um CPF com dígito
+        # verificador errado é sintoma de digitação, não ausência de processos.
+        print(
+            f"djen: aviso: --cpf {mask_cpf(cpf_normalizado)} tem dígito verificador "
+            "inválido; zero resultados aqui provavelmente indica erro de digitação",
+            file=sys.stderr,
+        )
     if args.cpf and papel != "parte":
         print("djen: --cpf só pode ser usado com --papel parte (ou --papel auto)", file=sys.stderr)
         return 2

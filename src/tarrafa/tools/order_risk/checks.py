@@ -11,30 +11,13 @@ import re
 from datetime import date, datetime
 from typing import Any
 
+# Validação de CPF mora no núcleo (fonte única da verdade); reexportada aqui
+# porque order_risk.scraper a consome por este módulo.
+from tarrafa.core.identity_extract import validate_cpf as validate_cpf
+
 
 def digits_only(value: str | None) -> str:
     return re.sub(r"\D", "", value or "")
-
-
-def validate_cpf(cpf: str | None) -> dict[str, Any]:
-    """Valida dígitos verificadores do CPF."""
-    d = digits_only(cpf)
-    if len(d) != 11:
-        return {"ok": False, "reason": "len", "digits": d, "formatted": cpf or ""}
-    if re.fullmatch(r"(.)\1{10}", d):
-        return {"ok": False, "reason": "repeated", "digits": d, "formatted": format_cpf(d)}
-    nums = [int(c) for c in d]
-    s = sum(nums[i] * (10 - i) for i in range(9))
-    r = s % 11
-    dv1 = 0 if r < 2 else 11 - r
-    if nums[9] != dv1:
-        return {"ok": False, "reason": "dv1", "digits": d, "formatted": format_cpf(d)}
-    s = sum(nums[i] * (11 - i) for i in range(10))
-    r = s % 11
-    dv2 = 0 if r < 2 else 11 - r
-    if nums[10] != dv2:
-        return {"ok": False, "reason": "dv2", "digits": d, "formatted": format_cpf(d)}
-    return {"ok": True, "reason": "valid", "digits": d, "formatted": format_cpf(d)}
 
 
 def format_cpf(digits: str) -> str:
