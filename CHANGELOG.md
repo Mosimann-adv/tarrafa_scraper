@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Fixed
+- **Indícios de CPF (`pdf-extract`, `djen`)** — a extração passa a conferir os dígitos
+  verificadores antes de tratar uma sequência de 11 dígitos como CPF. Número de protocolo,
+  conta e guia deixam de aparecer em `cpfs`; o que é reprovado fica registrado em
+  `cpfs_rejected`, sem descarte silencioso. A validação, que já existia em `order-risk`,
+  vira fonte única em `core.identity_extract` e deixa de ser duplicada.
+- **`tarrafa djen --cpf`** — avisa quando o CPF informado tem dígito verificador inválido.
+  A consulta segue, mas zero resultados nesse caso indica erro de digitação, não ausência
+  de processos.
+
 ### Security
 - **`tarrafa profile`** — impede CPF, e-mail e telefone nas consultas e limita a coleta a
   páginas públicas; dados pessoais reais não são embutidos em código, testes ou exemplos.

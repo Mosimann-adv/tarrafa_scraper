@@ -225,6 +225,9 @@ JSON. Não afirme exaustividade quando a cobertura foi parcial.
   local. Sem CPF, use `--nome` / `--texto` e trate o resultado como `identity_hints`.
 - Não funda processos por nome curto — homônimo é a falha mais comum aqui.
 - `--follow-datajud` encadeia o Datajud a partir dos CNJs encontrados.
+- Em `identity_hints`, `cpfs` só traz sequências com dígito verificador válido; as
+  reprovadas ficam em `cpfs_rejected` (protocolo, conta, guia). DV válido não confirma
+  titularidade — continua candidato a conferir.
 
 ```{{TARRAFA_SHELL}}
 {{TARRAFA_CALL}} djen --oab 12345 --uf SP --max-items 100 --out "PASTA/djen.json"
