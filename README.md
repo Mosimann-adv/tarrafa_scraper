@@ -18,6 +18,19 @@ CNPJ, DJEN, Datajud, decisões do STJ e PDFs em arquivos verificáveis.
 Foi criada para pesquisa e documentação jurídica experimental. Não produz conclusões
 jurídicas sozinha, não substitui conferência humana e não depende de uma IA específica.
 
+## Inventário interno, não prova com cadeia de custódia
+
+A Tarrafa serve para criar um inventário interno de materiais públicos: localizar fontes,
+registrar URLs, horários, metadados e hashes, e organizar capturas para conferência. Esse
+inventário ajuda a documentar o que foi encontrado, mas não substitui a obtenção formal da
+prova nem a preservação por cadeia de custódia própria, adequada ao caso e à jurisdição
+aplicável.
+
+Quando o material puder ser usado em processo, obtenha e preserve a fonte original por
+procedimento independente, documentando quem coletou, quando, como, onde e eventuais
+transferências ou alterações. Confirme a autenticidade e a integridade conforme a orientação
+profissional aplicável.
+
 > **Projeto experimental, não um produto acabado.**
 >
 > Sites e APIs mudam; coletores podem quebrar; resultados precisam ser conferidos antes
