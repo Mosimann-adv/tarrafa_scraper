@@ -60,14 +60,55 @@ def digits_only(s: str) -> str:
     return re.sub(r"\D", "", s or "")
 
 
+def _format_11_digits(d: str) -> str:
+    return f"{d[0:3]}.{d[3:6]}.{d[6:9]}-{d[9:11]}"
+
+
+def validate_cpf(cpf: str | None) -> dict[str, Any]:
+    """Valida os dígitos verificadores do CPF.
+
+    Fonte única de verdade do projeto: qualquer tool que precise decidir se uma
+    sequência de 11 dígitos é um CPF real deve usar esta função, e não apenas
+    conferir o comprimento. Sem isso, número de protocolo, conta e guia viram
+    "CPF encontrado".
+    """
+    d = digits_only(cpf)
+    if len(d) != 11:
+        return {"ok": False, "reason": "len", "digits": d, "formatted": cpf or ""}
+    if re.fullmatch(r"(.)\1{10}", d):
+        return {"ok": False, "reason": "repeated", "digits": d, "formatted": _format_11_digits(d)}
+    nums = [int(c) for c in d]
+    s = sum(nums[i] * (10 - i) for i in range(9))
+    r = s % 11
+    dv1 = 0 if r < 2 else 11 - r
+    if nums[9] != dv1:
+        return {"ok": False, "reason": "dv1", "digits": d, "formatted": _format_11_digits(d)}
+    s = sum(nums[i] * (11 - i) for i in range(10))
+    r = s % 11
+    dv2 = 0 if r < 2 else 11 - r
+    if nums[10] != dv2:
+        return {"ok": False, "reason": "dv2", "digits": d, "formatted": _format_11_digits(d)}
+    return {"ok": True, "reason": "valid", "digits": d, "formatted": _format_11_digits(d)}
+
+
+def cpf_has_valid_dv(cpf: str | None) -> bool:
+    """Atalho booleano sobre :func:`validate_cpf`."""
+    return bool(validate_cpf(cpf)["ok"])
+
+
 def format_cpf(digits: str) -> str | None:
+    """Formata 11 dígitos como CPF. Formatador, não validador.
+
+    Não confere dígito verificador de propósito: chamadores que precisam saber
+    se o número é um CPF real usam :func:`validate_cpf`.
+    """
     d = digits_only(digits)
     if len(d) != 11:
         return None
     # weak check: reject obvious invalids
     if d == d[0] * 11:
         return None
-    return f"{d[0:3]}.{d[3:6]}.{d[6:9]}-{d[9:11]}"
+    return _format_11_digits(d)
 
 
 def format_cnj(digits: str) -> str | None:
@@ -104,6 +145,7 @@ def extract_identity_hints(text: str, *, max_each: int = 40) -> dict[str, Any]:
     if not text:
         return {
             "cpfs": [],
+            "cpfs_rejected": [],
             "rgs": [],
             "datas_nascimento": [],
             "emails": [],
@@ -114,13 +156,21 @@ def extract_identity_hints(text: str, *, max_each: int = 40) -> dict[str, Any]:
             "addresses": [],
         }
 
+    # Só entra em `cpfs` a sequência cujos dígitos verificadores fecham. As demais
+    # ficam em `cpfs_rejected`: em autos, 11 dígitos seguidos costumam ser protocolo,
+    # conta ou guia, e emiti-los como CPF gera conferência manual inútil.
     cpfs: list[str] = []
+    cpfs_rejected: list[str] = []
     for m in _CPF_RE.finditer(text):
         fmt = format_cpf(m.group(1))
-        if fmt and fmt not in cpfs:
-            # skip if looks like part of longer digit run only when 11 digits valid
-            cpfs.append(fmt)
-        if len(cpfs) >= max_each:
+        if not fmt:
+            continue
+        if cpf_has_valid_dv(fmt):
+            if fmt not in cpfs:
+                cpfs.append(fmt)
+        elif fmt not in cpfs_rejected:
+            cpfs_rejected.append(fmt)
+        if len(cpfs) >= max_each or len(cpfs_rejected) >= max_each:
             break
 
     rgs: list[str] = []
@@ -207,6 +257,7 @@ def extract_identity_hints(text: str, *, max_each: int = 40) -> dict[str, Any]:
 
     return {
         "cpfs": cpfs,
+        "cpfs_rejected": cpfs_rejected,
         "rgs": rgs,
         "datas_nascimento": dns,
         "emails": emails,
@@ -222,6 +273,7 @@ def merge_hints(hint_list: list[dict[str, Any]], *, max_each: int = 50) -> dict[
     """Merge multiple hint dicts; preserve first-seen order, count frequencies."""
     keys = (
         "cpfs",
+        "cpfs_rejected",
         "rgs",
         "datas_nascimento",
         "emails",
