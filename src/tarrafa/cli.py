@@ -34,6 +34,7 @@ TOOLS = [
         "order-risk",
         "Triagem chargeback e-commerce (CPF/CEP/DJEN/loja) → JSON + HTML com imagens embutidas",
     ),
+    ("verify", "Reconfere o SHA-256 dos artefatos capturados contra os manifestos de execução"),
     ("doctor", "Check Python deps, Chromium, ffmpeg, yt-dlp, storage_state, MCP token"),
     ("skills", "Instala a skill da Tarrafa nos hosts de IA (Claude, Grok) com caminhos resolvidos"),
     ("list", "List tools"),
@@ -389,6 +390,7 @@ def main(argv: list[str] | None = None) -> int:
             "pdf_extract": "tarrafa.tools.pdf_extract.scraper",
             "order-risk": "tarrafa.tools.order_risk.scraper",
             "order_risk": "tarrafa.tools.order_risk.scraper",
+            "verify": "tarrafa.tools.verify.scraper",
         }
         if tool not in dispatch:
             print(f"Unknown tool: {tool!r}. Try: tarrafa list", file=sys.stderr)
@@ -402,6 +404,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             code = _dispatch_tool(dispatch[tool], "main", rest)
         except FileExistsError as e:
+            print(f"error: {e}", file=sys.stderr)
+            code = 2
+        except OSError as e:
+            # Gravação recusada (destino travado, disco cheio): mensagem legível
+            # em vez de traceback — o arquivo anterior segue intacto.
             print(f"error: {e}", file=sys.stderr)
             code = 2
         except SystemExit as e:

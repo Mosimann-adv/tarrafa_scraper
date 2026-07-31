@@ -26,6 +26,7 @@ from typing import Any
 
 from tarrafa.core.envelope import build_envelope
 from tarrafa.core.media import file_to_data_uri
+from tarrafa.core.run import register_artifact
 from tarrafa.core.writers import utc_now_iso, write_json
 from tarrafa.templates.dossier_html import render_dossier
 
@@ -332,6 +333,7 @@ def build_dossier(
     out_html = Path(out_html)
     out_html.parent.mkdir(parents=True, exist_ok=True)
     out_html.write_text(html, encoding="utf-8")
+    register_artifact(out_html, kind="html")
 
     envelope = build_envelope(
         "dossier",

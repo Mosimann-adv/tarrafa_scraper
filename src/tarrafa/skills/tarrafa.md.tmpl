@@ -155,6 +155,7 @@ sugira essa configuração por conta própria: ela não é pré-requisito de nad
 | Inteiro teor STJ (SCON PDF; Cloudflare) | `stj` |
 | Texto + identity hints de PDFs de autos | `pdf-extract` |
 | Triagem chargeback e-commerce | `order-risk` |
+| Conferir integridade do material já capturado | `verify` |
 | Checar ambiente | `doctor` |
 
 ```{{TARRAFA_SHELL}}
@@ -170,7 +171,13 @@ sugira essa configuração por conta própria: ela não é pré-requisito de nad
 {{TARRAFA_CALL}} cnpj --cnpj "00.000.000/0001-91" --out "PASTA/cnpj.json"
 {{TARRAFA_CALL}} datajud --cnj "0000000-00.0000.0.00.0000" --out "PASTA/datajud.json"
 {{TARRAFA_CALL}} pdf-extract --dir "PASTA/pdfs" --recursive --out "PASTA/pdf_extract.json"
+{{TARRAFA_CALL}} verify --workspace "PASTA"
 ```
+
+`verify` recalcula o SHA-256 dos artefatos e compara com o gravado no manifesto da
+captura. Exit `0` íntegro, `1` divergência, `6` nenhum manifesto (a captura só grava
+manifesto dentro de um workspace). Responde "não mudou desde a captura" — não é
+assinatura digital nem carimbo de tempo. "Ausente" pode ser pasta movida.
 
 Grave sempre no caminho que o usuário indicar (`--out` / `--out-dir`).
 

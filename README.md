@@ -40,6 +40,7 @@ jurídicas sozinha, não substitui conferência humana e não depende de uma IA 
 | Extrair texto de PDFs | `tarrafa pdf-extract` | Texto e indícios de identidade |
 | Montar uma ficha visual | `tarrafa dossier` | HTML autocontido |
 | Organizar prints e frames | `tarrafa album` | Álbum HTML pronto para imprimir |
+| Conferir se o material capturado continua íntegro | `tarrafa verify` | Relatório de integridade |
 
 Se você usa uma IA com acesso ao terminal, pode descrever o objetivo em linguagem comum.
 Dentro deste repositório, ela deve ler o [`AGENTS.md`](AGENTS.md) e usar o CLI existente

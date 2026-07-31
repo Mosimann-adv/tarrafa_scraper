@@ -37,6 +37,7 @@ from tarrafa.core.browser_util import chromium_page
 from tarrafa.core.challenge import challenge_meta, is_challenge_page, is_pdf_bytes
 from tarrafa.core.envelope import build_envelope
 from tarrafa.core.media import ensure_dir, file_sha256, slugify
+from tarrafa.core.run import register_artifact
 from tarrafa.core.writers import write_json
 
 SCON_HOME = "https://scon.stj.jus.br/SCON/"
@@ -240,6 +241,7 @@ def wait_challenge_clear(
 def _save_pdf_bytes(path: Path, data: bytes) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
+    register_artifact(path, kind="pdf")
     return path
 
 

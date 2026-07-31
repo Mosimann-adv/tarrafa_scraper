@@ -43,6 +43,7 @@ Standalone multi-tool CLI. No dependency on any specific AI product, IDE, or cas
 | Inteiro teor STJ (SCON PDF; Cloudflare) | `tarrafa stj` |
 | Texto + identity hints de PDFs (autos) | `tarrafa pdf-extract` |
 | Triagem chargeback pedido e-commerce (JSON + HTML embutido) | `tarrafa order-risk` |
+| Conferir se o material capturado continua íntegro | `tarrafa verify` |
 | Checar ambiente | `tarrafa doctor` |
 | Ensinar a Tarrafa a outra IA (fora deste repo) | `tarrafa skills install` |
 
@@ -68,6 +69,10 @@ Windows (venv local), se o script ainda não estiver no PATH:
 ```bash
 tarrafa list
 tarrafa doctor
+
+# Integridade: reconfere o SHA-256 dos artefatos contra os manifestos de execução
+tarrafa verify --workspace ./caso
+tarrafa verify --run ./caso/meta/runs/RUN_ID.json --out ./caso/meta/verificacao.json
 
 tarrafa search --query '"Nome Completo" cidade' --max-results 30 \
   --urls-out "OUT_DIR/urls.txt" --out "OUT_DIR/search.json"
@@ -163,6 +168,12 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 3. Write outputs into the **output path** the user names.
 4. Do not commit `storage_state.json` or `.env`.
 5. Report counts, paths, errors, exit codes.
+5.1. `verify` compara o SHA-256 atual com o do manifesto da captura. Prova apenas que o
+   arquivo não mudou desde a captura registrada — **não** é assinatura digital nem
+   carimbo de tempo, e não atesta a autenticidade da fonte. Artefato "ausente" pode ser
+   pasta movida: a relocação automática cobre o caso, confira antes de tratar como perda.
+   Tool que gravar arquivo fora de `write_json` deve chamar `register_artifact`, senão o
+   material fica fora da conferência.
 6. Classification / case PDF generation stay **out of this repo**, except print-ready HTML from `album` / `dossier`.
 7. Material-only: capture evidence, do not classify ofensas.
 8. `dossier` only **renders** provided avatar/meta/facts/sources/shots — no web search, no biography invention. Prefer multi-source overview e prints seletivos; nunca embutir login wall.
@@ -210,6 +221,9 @@ A ferramenta canônica é o **CLI `tarrafa`** (Playwright embutido). Não usar P
 | 2 | Bad args / missing dep / unknown tool |
 | 3–5 | IG-specific (nav / auth / login wall) |
 | 6 | Zero items |
+
+`verify`: `0` tudo íntegro · `1` divergência (modificado/ausente/ilegível) ou manifesto
+quebrado · `2` sem workspace/manifesto indicado · `6` nenhum manifesto encontrado.
 
 ## Skill para outros hosts de IA
 

@@ -31,6 +31,7 @@ from urllib.parse import quote, urlparse
 from tarrafa.core.envelope import build_envelope
 from tarrafa.core.http import DEFAULT_TIMEOUT, DEFAULT_UA, ensure_httpx
 from tarrafa.core.media import ensure_dir, file_to_data_uri
+from tarrafa.core.run import register_artifact
 from tarrafa.core.writers import utc_now_iso, write_json
 from tarrafa.templates.order_risk_html import render_order_risk
 from tarrafa.tools.order_risk.checks import (
@@ -719,6 +720,7 @@ def run_order_risk(
             artifacts=artifacts,
         )
         html_path.write_text(html_doc, encoding="utf-8")
+        register_artifact(html_path, kind="html")
         artifacts.append(str(html_path))
 
     envelope = build_envelope(

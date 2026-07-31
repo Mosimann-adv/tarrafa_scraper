@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from tarrafa.core.media import file_to_data_uri
+from tarrafa.core.run import register_artifact
 from tarrafa.core.writers import utc_now_iso, write_json
 from tarrafa.templates.album_html import render_album
 
@@ -231,6 +232,7 @@ def build_album(
     out_html = Path(out_html)
     out_html.parent.mkdir(parents=True, exist_ok=True)
     out_html.write_text(html, encoding="utf-8")
+    register_artifact(out_html, kind="html")
     html_bytes = out_html.stat().st_size
 
     # index without huge data URIs

@@ -52,13 +52,20 @@ def write_json(
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
         os.replace(tmp_name, path)
-    except Exception:
+    except Exception as exc:
         try:
             os.unlink(tmp_name)
         except OSError:
             pass
-        # Fallback non-atomic
-        path.write_text(text, encoding="utf-8")
+        # Sem fallback não-atômico: gravar por cima, aqui, arrisca deixar um JSON
+        # truncado com cara de arquivo íntegro — para material probatório, falhar
+        # alto é melhor do que gravar pela metade em silêncio.
+        raise OSError(
+            f"falha ao gravar {path} de forma atômica ({type(exc).__name__}: {exc}). "
+            "Causa comum no Windows: antivírus, OneDrive ou o arquivo aberto em outro "
+            "programa segurando o destino. Feche o arquivo e repita; o conteúdo "
+            "anterior foi preservado."
+        ) from exc
 
     if register_run:
         try:

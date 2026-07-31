@@ -507,16 +507,20 @@ class CommentStore:
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
+    """Grava pelo núcleo: atômico, registra o artefato e respeita --no-clobber.
+
+    O fallback local cobre apenas a ausência do núcleo. Engolir falha de gravação
+    aqui devolveria JSON truncado com cara de íntegro, e engolir FileExistsError
+    furaria o --no-clobber.
+    """
     try:
         from tarrafa.core.writers import write_json as _core_write
-
-        _core_write(path, payload)
+    except ImportError:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Always real JSON object (never double-encoded string)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return
-    except Exception:
-        pass
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Always real JSON object (never double-encoded string)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    _core_write(path, payload)
 
 
 def write_checkpoint(store: CommentStore, out_path: Path, stats_path: Path, round_i: int) -> None:

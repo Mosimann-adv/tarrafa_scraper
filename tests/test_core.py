@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from tarrafa.core.crawl import _canon
 from tarrafa.core.envelope import build_envelope
 from tarrafa.core.extract import extract_article
@@ -33,6 +35,29 @@ def test_write_json_roundtrip(tmp_path: Path):
     data = json.loads(p.read_text(encoding="utf-8"))
     assert data["hello"] == "世界"
     assert data["n"] == 1
+
+
+def test_write_json_raises_instead_of_silent_non_atomic_write(tmp_path: Path, monkeypatch):
+    """Destino travado (antivírus/OneDrive) tem de falhar alto, não gravar por cima.
+
+    Gravação não-atômica silenciosa deixaria JSON truncado com cara de íntegro.
+    """
+    import os
+
+    p = tmp_path / "out.json"
+    write_json(p, {"versao": "original"})
+
+    def boom(*_args, **_kwargs):
+        raise PermissionError("destino em uso por outro processo")
+
+    monkeypatch.setattr(os, "replace", boom)
+    with pytest.raises(OSError) as excinfo:
+        write_json(p, {"versao": "nova"})
+    assert "atômica" in str(excinfo.value)
+
+    # Conteúdo anterior preservado e nenhum temporário deixado para trás.
+    assert json.loads(p.read_text(encoding="utf-8"))["versao"] == "original"
+    assert [f.name for f in tmp_path.iterdir()] == ["out.json"]
 
 
 def test_write_jsonl(tmp_path: Path):

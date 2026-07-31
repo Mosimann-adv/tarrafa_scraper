@@ -2,7 +2,28 @@
 
 ## Unreleased
 
+### Added
+- **`tarrafa verify`** — reconfere o SHA-256 dos artefatos contra os manifestos de
+  execução e responde se o material continua idêntico ao capturado. Distingue
+  `ok` / `modificado` / `ausente` / `ilegível` / `sem hash`, aceita `--workspace`,
+  `--runs-dir` ou `--run`, e grava relatório com `--out`. Pasta de caso movida
+  (OneDrive, outra máquina) é reencontrada pelo caminho relativo ao workspace, em vez
+  de acusar perda. Exit `0` íntegro · `1` divergência · `2` sem fonte · `6` sem manifesto.
+  Responde "não mudou desde a captura registrada": não é assinatura digital nem carimbo
+  de tempo, e não atesta autenticidade da fonte.
+
 ### Fixed
+- **Artefatos fora da conferência de integridade** — `dossier`, `album` e `order-risk`
+  (HTML) e `stj` (PDFs dos inteiros teores) gravavam arquivo sem registrá-lo no
+  manifesto da execução, então o material mais probatório ficava sem hash e passava
+  em branco na conferência. Todos passam a chamar `register_artifact`.
+- **Gravação JSON não-atômica silenciosa** — quando a troca atômica falhava (típico no
+  Windows com antivírus, OneDrive ou arquivo aberto em outro programa), `write_json`
+  gravava por cima sem avisar, arriscando JSON truncado com aparência de íntegro. Agora
+  falha alto, com mensagem que aponta a causa provável, e preserva o conteúdo anterior.
+- **`tarrafa ig`** — o writer local engolia qualquer exceção do núcleo, o que anulava
+  `--no-clobber` e reintroduzia a gravação não-atômica silenciosa. O fallback passa a
+  cobrir só a ausência do núcleo.
 - **Indícios de CPF (`pdf-extract`, `djen`)** — a extração passa a conferir os dígitos
   verificadores antes de tratar uma sequência de 11 dígitos como CPF. Número de protocolo,
   conta e guia deixam de aparecer em `cpfs`; o que é reprovado fica registrado em
