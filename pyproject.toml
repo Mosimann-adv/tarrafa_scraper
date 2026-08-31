@@ -50,7 +50,7 @@ dev = [
   "build>=1.2,<2",
   "pytest>=7.0",
   "ruff>=0.12,<1",
-  "twine>=6,<7",
+  "twine>=6,<8",
 ]
 all = [
   "httpx>=0.27.0,<1",
@@ -61,7 +61,7 @@ all = [
   "build>=1.2,<2",
   "pytest>=7.0",
   "ruff>=0.12,<1",
-  "twine>=6,<7",
+  "twine>=6,<8",
 ]
 
 [project.urls]
